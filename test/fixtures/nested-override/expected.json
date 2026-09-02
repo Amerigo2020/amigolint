@@ -1,0 +1,20 @@
+[
+  {
+    "file": "packages/api/AGENTS.md",
+    "line": 3,
+    "severity": "info",
+    "message": "Nested file repeats 3 lines from the root; agents load both"
+  },
+  {
+    "file": "packages/web/AGENTS.md",
+    "line": 3,
+    "severity": "info",
+    "message": "Nested file repeats 3 lines from the root; agents load both"
+  },
+  {
+    "file": "services/auth/CLAUDE.md",
+    "line": 3,
+    "severity": "info",
+    "message": "Nested file repeats 3 lines from the root; agents load both"
+  }
+]

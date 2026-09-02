@@ -243,7 +243,50 @@ describe('amigolint CLI', () => {
     const parsed: unknown = JSON.parse(result.stdout);
     const report = reportSchema.parse(parsed);
     expect(report.summary.errors).toBe(1);
-    expect(report.findings[0]?.code).toBe('AL001');
+    expect(report.findings.some(({ code }) => code === 'AL001')).toBe(true);
+  });
+
+  it('emits SARIF and GitHub workflow annotations', async () => {
+    const cwd = path.join(fixtureRoot, 'error');
+    const sarif = await runCli(['--format', 'sarif'], cwd);
+    const github = await runCli(['--format', 'github'], cwd);
+    const cleanGithub = await runCli(
+      ['--format', 'github', '--rule', 'stale-path'],
+      path.join(fixtureRoot, 'clean'),
+    );
+
+    expect(sarif.code).toBe(1);
+    const parsedSarif = JSON.parse(sarif.stdout) as {
+      runs: Array<{ results: unknown[] }>;
+    };
+    expect(parsedSarif).toMatchObject({
+      version: '2.1.0',
+      runs: [
+        {
+          tool: { driver: { name: 'amigolint' } },
+        },
+      ],
+    });
+    expect(parsedSarif.runs[0]?.results).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          ruleId: 'AL001',
+          locations: expect.arrayContaining([
+            expect.objectContaining({
+              physicalLocation: expect.objectContaining({
+                artifactLocation: { uri: 'AGENTS.md' },
+              }),
+            }),
+          ]),
+        }),
+      ]),
+    );
+    expect(github.code).toBe(1);
+    expect(github.stderr).toBe('');
+    expect(github.stdout).toContain(
+      '::error file=AGENTS.md,line=3,col=6,title=AL001%3A stale-path::',
+    );
+    expect(cleanGithub).toEqual({ code: 0, stderr: '', stdout: '' });
   });
 
   it('supports rule selection, quiet output, and disabled color', async () => {
@@ -270,6 +313,60 @@ describe('amigolint CLI', () => {
 
     expect(allowed.code).toBe(0);
     expect(exceeded.code).toBe(1);
+  });
+
+  it('lists every rule with its code, default severity, and docs', async () => {
+    const result = await runCli(['rules'], repoRoot);
+
+    expect(result.code).toBe(0);
+    expect(result.stderr).toBe('');
+    for (const [code, id] of [
+      ['AL001', 'stale-path'],
+      ['AL009', 'vague-rule'],
+      ['AL015', 'absolute-user-path'],
+    ]) {
+      expect(result.stdout).toContain(code);
+      expect(result.stdout).toContain(id);
+    }
+    expect(result.stdout).toContain('Default');
+    expect(result.stdout).toContain('Description');
+  });
+
+  it('prints per-agent instruction statistics', async () => {
+    const result = await runCli(['stats'], path.join(fixtureRoot, 'clean'));
+
+    expect(result).toEqual({
+      code: 0,
+      stderr: '',
+      stdout: expect.stringContaining('codex'),
+    });
+    expect(result.stdout).toContain('AGENTS.md');
+    expect(result.stdout).toContain('Approx tokens');
+  });
+
+  it('initializes a documented config once and can load it', async () => {
+    const cwd = path.join(fixtureRoot, 'init');
+    await mkdir(cwd, { recursive: true });
+
+    const initialized = await runCli(['init'], cwd);
+    const configPath = path.join(cwd, 'amigolint.config.json');
+    const source = await readFile(configPath, 'utf8');
+    const loaded = await runCli(['--format', 'json'], cwd);
+    const repeated = await runCli(['init'], cwd);
+
+    expect(initialized).toEqual({
+      code: 0,
+      stderr: '',
+      stdout: 'Created `amigolint.config.json`\n',
+    });
+    expect(source).toContain('// AL001:');
+    expect(source).toContain('// AL015:');
+    expect(source).toContain('"stale-path": "error"');
+    expect(source).toContain('"vague-rule": "info"');
+    expect(loaded.code).toBe(0);
+    expect(JSON.parse(loaded.stdout).findings).toEqual([]);
+    expect(repeated.code).toBe(2);
+    expect(repeated.stderr).toContain('already exists');
   });
 });
 

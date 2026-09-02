@@ -6,7 +6,7 @@ You are working on **amigolint**, a CLI linter for AI agent instruction files (C
 
 - Install: `pnpm install`
 - Build: `pnpm build` (tsdown → `dist/cli.mjs`)
-- Test: `pnpm test` (vitest), single file: `pnpm vitest run test/rules/stale-path.test.ts`
+- Test: `pnpm test` (vitest), single file: `pnpm exec vitest run test/rules/stale-path.test.ts`
 - Lint + format: `pnpm lint` (biome check), fix: `pnpm lint:fix`
 - Run locally: `pnpm build && node dist/cli.mjs <path>` or `pnpm dev -- <path>` (tsx)
 
@@ -20,6 +20,7 @@ All three of build, test and lint must pass before every commit.
 - No new runtime dependency without a one-line justification in the commit body. Current allowed runtime deps: `commander`, `picocolors`, `tinyglobby`, `yaml`, `zod`.
 - Findings are one sentence, no trailing period, and quote paths in backticks.
 - Never print a full secret anywhere (logs, tests, snapshots).
+- Keep diagnostic output deterministic across repeated runs.
 - Keep `dist/cli.mjs` under 200 kB and cold start under 5 s; `test/perf.test.ts` enforces the latter.
 
 ## Workflow for a milestone
@@ -34,7 +35,7 @@ All three of build, test and lint must pass before every commit.
 
 - Do not call any LLM API in the core linting path.
 - Do not add a markdown AST library; the parser is hand-written on purpose.
-- Do not lint files under `node_modules`, `.git`, or `.claude/worktrees/**`.
+- Do not lint dependency folders, Git metadata, or Claude worktree copies.
 - Do not change the CLI flag names in `docs/SPEC.md` §9 without updating the spec.
 
 ## Environment notes (operator-maintained)

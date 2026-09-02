@@ -2,6 +2,7 @@ import { execFile } from 'node:child_process';
 import { stat } from 'node:fs/promises';
 import { dirname, isAbsolute, relative, resolve, sep } from 'node:path';
 import { glob, isDynamicPattern } from 'tinyglobby';
+import { REPOSITORY_IGNORE_GLOBS } from './path-ignore.js';
 
 const DEFAULT_TARGETS = [
   '**/CLAUDE.md',
@@ -21,25 +22,6 @@ const DEFAULT_TARGETS = [
   '.clinerules',
   '.clinerules/*.md',
   '.roo/rules/*.md',
-] as const;
-
-const STATIC_IGNORED_DIRECTORIES = [
-  'node_modules',
-  '.git',
-  'dist',
-  'build',
-  '.next',
-  'coverage',
-  'vendor',
-] as const;
-
-const STATIC_IGNORE_GLOBS = [
-  ...STATIC_IGNORED_DIRECTORIES.flatMap((directory) => [
-    `${directory}/**`,
-    `**/${directory}/**`,
-  ]),
-  '.claude/worktrees/**',
-  '**/.claude/worktrees/**',
 ] as const;
 
 export interface DiscoverOptions {
@@ -132,7 +114,7 @@ async function listAllowedFiles(
   exclude: readonly string[],
 ): Promise<Set<string>> {
   const ignore = [
-    ...STATIC_IGNORE_GLOBS,
+    ...REPOSITORY_IGNORE_GLOBS,
     ...exclude.map((pattern) => normalizePattern(pattern)),
   ];
   const diskFiles = await glob('**/*', {
@@ -169,7 +151,7 @@ async function matchingFiles(
     expandDirectories: false,
     followSymbolicLinks: false,
     ignore: [
-      ...STATIC_IGNORE_GLOBS,
+      ...REPOSITORY_IGNORE_GLOBS,
       ...exclude.map((pattern) => normalizePattern(pattern)),
     ],
     onlyFiles: true,

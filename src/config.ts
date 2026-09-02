@@ -124,12 +124,76 @@ async function readJsonFile(
   }
 
   try {
-    return JSON.parse(source) as unknown;
+    return JSON.parse(stripJsonComments(source)) as unknown;
   } catch (error) {
     throw new ConfigError(
       `Could not parse config ${quotePath(displayPath)}: ${errorMessage(error)}`,
     );
   }
+}
+
+/** Strip JavaScript-style comments while preserving strings and line numbers. */
+function stripJsonComments(source: string): string {
+  let result = '';
+  let inString = false;
+  let escaped = false;
+  let inLineComment = false;
+  let inBlockComment = false;
+
+  for (let index = 0; index < source.length; index += 1) {
+    const character = source[index] ?? '';
+    const next = source[index + 1] ?? '';
+
+    if (inLineComment) {
+      if (character === '\n' || character === '\r') {
+        inLineComment = false;
+        result += character;
+      } else {
+        result += ' ';
+      }
+      continue;
+    }
+
+    if (inBlockComment) {
+      if (character === '*' && next === '/') {
+        result += '  ';
+        inBlockComment = false;
+        index += 1;
+      } else {
+        result += character === '\n' || character === '\r' ? character : ' ';
+      }
+      continue;
+    }
+
+    if (inString) {
+      result += character;
+      if (escaped) {
+        escaped = false;
+      } else if (character === '\\') {
+        escaped = true;
+      } else if (character === '"') {
+        inString = false;
+      }
+      continue;
+    }
+
+    if (character === '"') {
+      inString = true;
+      result += character;
+    } else if (character === '/' && next === '/') {
+      result += '  ';
+      inLineComment = true;
+      index += 1;
+    } else if (character === '/' && next === '*') {
+      result += '  ';
+      inBlockComment = true;
+      index += 1;
+    } else {
+      result += character;
+    }
+  }
+
+  return result;
 }
 
 function validateConfig(value: unknown, displayPath: string): LintConfig {

@@ -23,6 +23,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Inline next-line, block, and file-level finding suppression with summary counts
 - Zod-validated configuration discovery and a generated editor schema
 - Pretty and JSON reports plus the public `lint()` API
+- `vague-rule` (AL009), `missing-essentials` (AL010), `nested-override`
+  (AL012), `huge-code-block` (AL013), `todo-marker` (AL014), and
+  `absolute-user-path` (AL015) rules with fixture coverage
+- SARIF 2.1.0 output validated against the vendored official schema and GitHub
+  Actions workflow-command output
+- `rules`, `stats`, and `init` subcommands, plus `--max-warnings` enforcement
+- A dogfood workflow that annotates findings from this repository's `AGENTS.md`
 
 ### Changed
 
@@ -41,5 +48,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   checks for large instruction-file collections
 - Stopped treating placeholder angle syntax as links and adjusted token budgets
   for lazily loaded instructions
+- Excluded build-output directories from discovery, repository files,
+  directories, workspaces, and stale-path basename suggestions even when Git
+  tracks their contents
+- Accepted comments in configuration files so `amigolint init` can document
+  every generated rule default
 
 [Unreleased]: https://github.com/Amerigo2020/amigolint/commits/main
