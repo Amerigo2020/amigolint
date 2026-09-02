@@ -19,6 +19,10 @@ const precisionRoundThreeFixtureDir = path.join(
   fixtureDir,
   'precision-round-three',
 );
+const precisionRoundFourFixtureDir = path.join(
+  fixtureDir,
+  'precision-round-four',
+);
 const temporaryDirectories: string[] = [];
 
 afterEach(async () => {
@@ -183,6 +187,22 @@ describe('AL001 stale-path', () => {
     );
   });
 
+  it('falls back to an absolute filesystem path after root-relative lookup', async () => {
+    const root = await mkdtemp(path.join(tmpdir(), 'amigolint-root-path-'));
+    const outside = await mkdtemp(
+      path.join(tmpdir(), 'amigolint-absolute-path-'),
+    );
+    temporaryDirectories.push(root, outside);
+    const absoluteFile = path.join(outside, 'existing.md');
+    await writeFile(absoluteFile, '# Existing\n');
+    const doc = parseDoc('AGENTS.md', `Read \`${absoluteFile}\`\n`);
+    const repo = await buildRepoIndex(root);
+
+    expect(stalePath.check({ doc, allDocs: [doc], repo, options: {} })).toEqual(
+      [],
+    );
+  });
+
   it('skips extensionless package shapes without dependencies but checks paths with extensions', async () => {
     const root = path.join(noDependencyFixtureDir, 'repo');
     const raw = await readFile(path.join(root, 'AGENTS.md'), 'utf8');
@@ -296,6 +316,33 @@ describe('AL001 stale-path', () => {
         .flatMap((doc) =>
           stalePath.check({ doc, allDocs: docs, repo, options: {} }),
         )
+        .map(({ file, line, col, severity, message, suggestion }) => ({
+          file,
+          line,
+          col,
+          severity,
+          message,
+          ...(suggestion === undefined ? {} : { suggestion }),
+        })),
+    ).toEqual(expected);
+  });
+
+  it('handles root-leading paths, suffix matches, scoped globs, ellipses, and quoted tokens', async () => {
+    const root = path.join(precisionRoundFourFixtureDir, 'repo');
+    const docPath = 'compiler/CLAUDE.md';
+    const raw = await readFile(path.join(root, docPath), 'utf8');
+    const expected = JSON.parse(
+      await readFile(
+        path.join(precisionRoundFourFixtureDir, 'expected.json'),
+        'utf8',
+      ),
+    ) as Array<Record<string, unknown>>;
+    const doc = parseDoc(docPath, raw);
+    const repo = await buildRepoIndex(root);
+
+    expect(
+      stalePath
+        .check({ doc, allDocs: [doc], repo, options: {} })
         .map(({ file, line, col, severity, message, suggestion }) => ({
           file,
           line,

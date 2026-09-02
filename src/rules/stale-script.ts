@@ -14,8 +14,26 @@ const PACKAGE_MANAGER_OPERATIONS = new Set([
   'up',
   'why',
   'ls',
+  'workspace',
+  'workspaces',
   '-v',
   '--version',
+]);
+
+const MAKE_JUST_STOPWORDS = new Set([
+  'the',
+  'a',
+  'an',
+  'to',
+  'and',
+  'or',
+  'it',
+  'all',
+  'run',
+  'sure',
+  'use',
+  'do',
+  'not',
 ]);
 
 type CommandKind = 'script' | 'make' | 'just' | 'turbo';
@@ -31,6 +49,8 @@ interface CommandCandidate {
   name: string;
   line: number;
   col: number;
+  workspacePackageName?: string;
+  binaryAmbiguous?: boolean;
 }
 
 interface NormalizedToken {
@@ -42,7 +62,7 @@ const staleScript = {
   id: 'stale-script',
   code: 'AL002',
   defaultSeverity: 'error',
-  docs: 'Reports package scripts and make, just, or turbo targets that do not exist.',
+  docs: 'Reports missing package scripts and make, just, or turbo targets, including workspace-qualified commands.',
   check(context) {
     const findings: Finding[] = [];
     const seen = new Set<string>();
@@ -89,12 +109,77 @@ function collectCandidates(doc: Doc): CommandCandidate[] {
 }
 
 function extractCommands(source: CommandSource): CommandCandidate[] {
+  const uncommentedSource = {
+    ...source,
+    text: stripUnquotedComment(source.text),
+  };
+  if (uncommentedSource.text.trim() === '') {
+    return [];
+  }
+
   return [
-    ...extractPackageScripts(source),
-    ...extractNamedCommand(source, 'make', 'make'),
-    ...extractNamedCommand(source, 'just', 'just'),
-    ...extractTurboTasks(source),
+    ...extractWorkspacePackageScripts(uncommentedSource),
+    ...extractPackageScripts(uncommentedSource),
+    ...extractNamedCommand(uncommentedSource, 'make', 'make'),
+    ...extractNamedCommand(uncommentedSource, 'just', 'just'),
+    ...extractTurboTasks(uncommentedSource),
   ];
+}
+
+function extractWorkspacePackageScripts(
+  source: CommandSource,
+): CommandCandidate[] {
+  return [
+    ...extractWorkspacePattern(
+      source,
+      /\byarn[ \t]+workspace[ \t]+([^\s;&|]+)[ \t]+(?:(run)[ \t]+)?([^\s;&|]+)/g,
+      'yarn',
+    ),
+    ...extractWorkspacePattern(
+      source,
+      /\bpnpm[ \t]+(?:--filter(?:[ \t]+|=)|-F(?:[ \t]+|=))([^\s;&|]+)[ \t]+(?:(run)[ \t]+)?([^\s;&|]+)/g,
+      'pnpm',
+    ),
+    ...extractWorkspacePattern(
+      source,
+      /\bnpm[ \t]+(?:-w(?:[ \t]+|=)|--workspace(?:[ \t]+|=))([^\s;&|]+)[ \t]+(run)[ \t]+([^\s;&|]+)/g,
+      'npm',
+    ),
+  ];
+}
+
+function extractWorkspacePattern(
+  source: CommandSource,
+  pattern: RegExp,
+  manager: string,
+): CommandCandidate[] {
+  const candidates: CommandCandidate[] = [];
+
+  for (const match of source.text.matchAll(pattern)) {
+    const rawPackageName = match[1];
+    const rawScript = match[3];
+    if (!rawPackageName || !rawScript || match.index === undefined) {
+      continue;
+    }
+
+    const packageName = normalizeToken(rawPackageName).value;
+    const token = normalizeToken(rawScript);
+    const script = packageScriptName(manager, match[2] === 'run', token.value);
+    if (!packageName || !script) {
+      continue;
+    }
+
+    const tokenOffset = match[0].lastIndexOf(rawScript) + token.leadingOffset;
+    candidates.push({
+      kind: 'script',
+      name: script,
+      line: source.line,
+      col: source.col + match.index + tokenOffset,
+      workspacePackageName: packageName,
+    });
+  }
+
+  return candidates;
 }
 
 function extractPackageScripts(source: CommandSource): CommandCandidate[] {
@@ -120,6 +205,7 @@ function extractPackageScripts(source: CommandSource): CommandCandidate[] {
       name: script,
       line: source.line,
       col: source.col + match.index + tokenOffset,
+      ...(!match[2] && manager !== 'npm' ? { binaryAmbiguous: true } : {}),
     });
   }
 
@@ -145,9 +231,6 @@ function packageScriptName(
   if (manager === 'npm') {
     return argument === 'test' ? 'test' : undefined;
   }
-  if (manager === 'bun') {
-    return undefined;
-  }
   return argument;
 }
 
@@ -165,7 +248,11 @@ function extractNamedCommand(
       continue;
     }
     const token = normalizeToken(rawToken);
-    if (token.value === '' || token.value.startsWith('-')) {
+    if (
+      token.value === '' ||
+      token.value.startsWith('-') ||
+      MAKE_JUST_STOPWORDS.has(token.value.toLowerCase())
+    ) {
       continue;
     }
 
@@ -215,6 +302,38 @@ function normalizeToken(rawToken: string): NormalizedToken {
   };
 }
 
+function stripUnquotedComment(command: string): string {
+  let quote: '"' | "'" | undefined;
+  let escaped = false;
+
+  for (let index = 0; index < command.length; index += 1) {
+    const character = command[index];
+    if (escaped) {
+      escaped = false;
+      continue;
+    }
+    if (character === '\\' && quote !== "'") {
+      escaped = true;
+      continue;
+    }
+    if (quote) {
+      if (character === quote) {
+        quote = undefined;
+      }
+      continue;
+    }
+    if (character === '"' || character === "'") {
+      quote = character;
+      continue;
+    }
+    if (character === '#') {
+      return command.slice(0, index);
+    }
+  }
+
+  return command;
+}
+
 function checkCandidate(
   candidate: CommandCandidate,
   context: RuleContext,
@@ -251,8 +370,34 @@ function checkPackageScript(
   candidate: CommandCandidate,
   context: RuleContext,
 ): Finding | undefined {
+  if (candidate.workspacePackageName) {
+    const workspacePackage = context.repo.findWorkspacePackage(
+      candidate.workspacePackageName,
+    );
+    if (!workspacePackage) {
+      return undefined;
+    }
+    if (workspacePackage.scripts.has(candidate.name)) {
+      return undefined;
+    }
+    return makeFinding(
+      candidate,
+      context.doc.path,
+      'error',
+      `\`${candidate.name}\` script does not exist`,
+    );
+  }
+
   const nearestPackage = context.repo.findNearestPackage(context.doc.path);
   if (nearestPackage?.scripts.has(candidate.name)) {
+    return undefined;
+  }
+
+  if (
+    candidate.binaryAmbiguous &&
+    (context.repo.dependencies.has(candidate.name) ||
+      context.repo.binaries.has(candidate.name))
+  ) {
     return undefined;
   }
 

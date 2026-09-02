@@ -7,6 +7,7 @@ import { buildRepoIndex } from '../../src/repo-index.js';
 import { formatJson } from '../../src/report/json.js';
 import type { Report } from '../../src/report/types.js';
 import secretLeak from '../../src/rules/secret-leak.js';
+import { redactSecrets } from '../../src/secrets.js';
 
 const fixtureDir = fileURLToPath(
   new URL('../fixtures/secret-leak/', import.meta.url),
@@ -82,7 +83,10 @@ describe('AL004 secret-leak', () => {
       7: Potential assigned credential \`ABCD****\` found
       8: Potential JWT \`eyJa****\` found
       9: Potential database credential \`pass****\` found
-      10: Potential private key \`----****\` found"
+      10: Potential private key \`----****\` found
+      28: Potential assigned credential \`buil****\` found
+      29: Potential assigned credential \`mixe****\` found
+      30: Potential assigned credential \`abcd****\` found"
     `);
   });
 
@@ -117,6 +121,53 @@ describe('AL004 secret-leak', () => {
 
     expect(output.includes('Q7!z'), 'JSON exposed a full password').toBe(false);
     expect(findings[0]?.message).toContain('Q7!****');
+  });
+
+  it('redacts the password capture when a database username has the same value', () => {
+    const repeatedValue = ['matching', 'credential', '1234'].join('-');
+    const source = `postgres://${repeatedValue}:${repeatedValue}@localhost/db`;
+    const redacted = redactSecrets(source);
+
+    expect(
+      redacted.includes(`:${repeatedValue}@`),
+      'database password remained unmasked',
+    ).toBe(false);
+    expect(redacted.endsWith(':matc****@localhost/db')).toBe(true);
+  });
+
+  it('only reports generic assignments with credential-like values', async () => {
+    const raw = await readFile(path.join(repoRoot, 'AGENTS.md'), 'utf8');
+    const doc = parseDoc('AGENTS.md', raw);
+    const repo = await buildRepoIndex(repoRoot);
+    const findings = await secretLeak.check({
+      doc,
+      allDocs: [doc],
+      repo,
+      options: {},
+    });
+
+    expect(
+      findings
+        .filter(({ message }) => message.includes('assigned credential'))
+        .map(({ line, message }) => ({ line, message })),
+    ).toEqual([
+      {
+        line: 7,
+        message: 'Potential assigned credential `ABCD****` found',
+      },
+      {
+        line: 28,
+        message: 'Potential assigned credential `buil****` found',
+      },
+      {
+        line: 29,
+        message: 'Potential assigned credential `mixe****` found',
+      },
+      {
+        line: 30,
+        message: 'Potential assigned credential `abcd****` found',
+      },
+    ]);
   });
 });
 

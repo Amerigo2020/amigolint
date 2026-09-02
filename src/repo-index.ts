@@ -35,10 +35,13 @@ export interface RepoIndex {
   allPackages: PackageScripts[];
   /** Declared and locally installed package names from across the repository. */
   dependencies: Set<string>;
+  /** Executable shim names found in package-local node_modules/.bin folders. */
+  binaries: Set<string>;
   makeTargets: Set<string>;
   justRecipes: Set<string>;
   turboTasks: Set<string>;
   findNearestPackage(docPath: string): PackageScripts | undefined;
+  findWorkspacePackage(name: string): PackageScripts | undefined;
   findPackagesWithScript(script: string): PackageScripts[];
 }
 
@@ -110,13 +113,19 @@ async function buildUncachedRepoIndex(root: string): Promise<RepoIndex> {
     root,
     files,
   );
-  const [installedDependencies, makeTargets, justRecipes, turboTasks] =
-    await Promise.all([
-      loadInstalledDependencies(root, allPackages),
-      loadMakeTargets(root, files),
-      loadJustRecipes(root, files),
-      loadTurboTasks(root, files),
-    ]);
+  const [
+    installedDependencies,
+    binaries,
+    makeTargets,
+    justRecipes,
+    turboTasks,
+  ] = await Promise.all([
+    loadInstalledDependencies(root, allPackages),
+    loadInstalledBinaries(root, allPackages),
+    loadMakeTargets(root, files),
+    loadJustRecipes(root, files),
+    loadTurboTasks(root, files),
+  ]);
   const dependencies = new Set([
     ...declaredDependencies,
     ...installedDependencies,
@@ -129,10 +138,12 @@ async function buildUncachedRepoIndex(root: string): Promise<RepoIndex> {
     packages,
     allPackages,
     dependencies,
+    binaries,
     makeTargets,
     justRecipes,
     turboTasks,
     findNearestPackage: (docPath) => findNearestPackage(allPackages, docPath),
+    findWorkspacePackage: (name) => packages.find((pkg) => pkg.name === name),
     findPackagesWithScript: (script) =>
       packages.filter((pkg) => pkg.scripts.has(script)),
   };
@@ -212,6 +223,39 @@ async function loadInstalledDependencies(
     [...packageDirectories].map((directory) =>
       readInstalledDependencies(path.join(root, directory, 'node_modules')),
     ),
+  );
+  return new Set(installedByDirectory.flat());
+}
+
+async function loadInstalledBinaries(
+  root: string,
+  packages: PackageScripts[],
+): Promise<Set<string>> {
+  const packageDirectories = new Set([
+    '.',
+    ...packages.map(({ directory }) => directory),
+  ]);
+  const installedByDirectory = await Promise.all(
+    [...packageDirectories].map(async (directory) => {
+      const entries = await readdir(
+        path.join(root, directory, 'node_modules', '.bin'),
+        { withFileTypes: true },
+      ).catch(() => undefined);
+      if (!entries) {
+        return [];
+      }
+
+      return entries
+        .filter(
+          (entry) =>
+            !entry.name.startsWith('.') &&
+            (entry.isFile() || entry.isDirectory() || entry.isSymbolicLink()),
+        )
+        .flatMap(({ name }) => {
+          const portableName = name.replace(/\.(?:cmd|ps1)$/i, '');
+          return portableName === name ? [name] : [name, portableName];
+        });
+    }),
   );
   return new Set(installedByDirectory.flat());
 }

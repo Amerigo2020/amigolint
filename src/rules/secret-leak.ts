@@ -5,7 +5,7 @@ const secretLeak = {
   id: 'secret-leak',
   code: 'AL004',
   defaultSeverity: 'error',
-  docs: 'Reports credentials and private key material while masking every detected value.',
+  docs: 'Reports credential-shaped assignments, provider tokens, and private key material while masking every detected value.',
   check(context) {
     return findSecrets(context.doc.raw).map((detection) => {
       const position = positionAt(context.doc.raw, detection.start);

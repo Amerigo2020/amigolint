@@ -1,0 +1,37 @@
+[
+  {
+    "file": "compiler/CLAUDE.md",
+    "line": 4,
+    "col": 20,
+    "severity": "info",
+    "message": "`src/HIR/` does not exist here; found at `compiler/packages/babel-plugin-react-compiler/src/HIR`"
+  },
+  {
+    "file": "compiler/CLAUDE.md",
+    "line": 5,
+    "col": 15,
+    "severity": "info",
+    "message": "`src/runtime.ts` does not exist here; found at `packages/ui/src/runtime.ts`"
+  },
+  {
+    "file": "compiler/CLAUDE.md",
+    "line": 10,
+    "col": 19,
+    "severity": "error",
+    "message": "`src/Missing/` does not exist"
+  },
+  {
+    "file": "compiler/CLAUDE.md",
+    "line": 12,
+    "col": 19,
+    "severity": "info",
+    "message": "`./src/HIR/` does not exist here; found at `compiler/packages/babel-plugin-react-compiler/src/HIR`"
+  },
+  {
+    "file": "compiler/CLAUDE.md",
+    "line": 13,
+    "col": 21,
+    "severity": "info",
+    "message": "`src/./HIR/` does not exist here; found at `compiler/packages/babel-plugin-react-compiler/src/HIR`"
+  }
+]

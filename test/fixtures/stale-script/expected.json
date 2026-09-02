@@ -23,5 +23,30 @@
     "line": 14,
     "severity": "error",
     "message": "`block-missing` script does not exist"
+  },
+  {
+    "line": 37,
+    "severity": "error",
+    "message": "`missing-yarn-workspace` script does not exist"
+  },
+  {
+    "line": 41,
+    "severity": "error",
+    "message": "`missing-pnpm-workspace` script does not exist"
+  },
+  {
+    "line": 44,
+    "severity": "error",
+    "message": "`missing-npm-workspace` script does not exist"
+  },
+  {
+    "line": 47,
+    "severity": "error",
+    "message": "`missing-filtered-task` turbo task does not exist"
+  },
+  {
+    "line": 55,
+    "severity": "error",
+    "message": "`bare-missing` script does not exist"
   }
 ]

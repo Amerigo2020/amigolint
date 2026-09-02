@@ -38,5 +38,20 @@
     "line": 10,
     "severity": "error",
     "message": "Potential private key `----****` found"
+  },
+  {
+    "line": 28,
+    "severity": "error",
+    "message": "Potential assigned credential `buil****` found"
+  },
+  {
+    "line": 29,
+    "severity": "error",
+    "message": "Potential assigned credential `mixe****` found"
+  },
+  {
+    "line": 30,
+    "severity": "error",
+    "message": "Potential assigned credential `abcd****` found"
   }
 ]

@@ -56,6 +56,11 @@ describe('buildRepoIndex', () => {
     expect(
       index.findPackagesWithScript('shared').map(({ directory }) => directory),
     ).toEqual(['.', 'packages/api']);
+    expect(index.findWorkspacePackage('@fixture/api')?.directory).toBe(
+      'packages/api',
+    );
+    expect(index.findWorkspacePackage('@fixture/ignored')).toBeUndefined();
+    expect(index.findWorkspacePackage('standalone')).toBeUndefined();
   });
 
   it('collects dependency names from every package and dependency table', async () => {

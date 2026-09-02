@@ -343,7 +343,7 @@ describe('amigolint CLI', () => {
     expect(lines[0]).toBe('| Code | Rule | Default | Description |');
     expect(lines[1]).toBe('| --- | --- | --- | --- |');
     expect(lines[2]).toBe(
-      '| AL001 | `stale-path` | error | Reports file, directory, and glob references that no longer resolve. |',
+      '| AL001 | `stale-path` | error | Reports unresolved file, directory, and glob references, with relocation hints for paths found elsewhere. |',
     );
     expect(lines.at(-1)).toContain('| AL015 | `absolute-user-path` | warn |');
   });

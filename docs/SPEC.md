@@ -115,11 +115,15 @@ Candidates from inline code spans and `@imports` contain a `/` or end with a kno
 
 Exclusions (precision-first):
 - URLs and extensionless absolute routes; domains, versions, flags and commands, property or method syntax, quoted/assignment syntax, and bare extension mentions
-- angle-bracket or Mustache placeholders, tokens containing an ellipsis (`...`), and brace groups without a comma (including `{...}`); comma groups such as `{a,b}` remain globs
+- angle-bracket or Mustache placeholders, tokens containing an ellipsis (`...` or `…`), and brace groups without a comma (including `{...}`); comma groups such as `{a,b}` remain globs
+- tokens containing single or double quotes, including quoted bracket access such as `metadata.annotations['name']`
 - CSS arbitrary values, empty bracket syntax, numeric path segments, and inline extensionless slash phrases whose segments are plain `^[a-z0-9-]+$` words (case-insensitive), unless explicitly relative or rooted at an indexed top-level entry
-- npm dependency subpaths, package-shaped scoped references whose scope is not an indexed directory, and `@/` or `~/` aliases when a repository tsconfig defines TypeScript aliases
+- npm dependency subpaths, package-shaped scoped references or scoped globs whose scope is not an indexed directory, and `@/` or `~/` aliases when a repository tsconfig defines TypeScript aliases
 - tokens containing an index-excluded directory segment: `node_modules`, `vendor`, `dist`, `build`, `out`, `target`, `coverage`, `.next`, `.turbo`, `.cache`, `__pycache__`, `.venv`, or `venv`
 - paths ignored by `stalePath.ignore`, bare inline filenames found by basename elsewhere in the repository, or paths resolving from the document directory, repository root, `$HOME` for `~/`, or (for `SKILL.md`) a parent of the skill directory
+
+- Leading-slash candidates resolve from the repository root first, then as absolute filesystem paths; report only when both miss
+- For a missing candidate with at least two segments, a segment-aligned repository suffix match is `info`: "`src/HIR/` does not exist here; found at `compiler/packages/babel-plugin-react-compiler/src/HIR`"; prefer the shortest path and index lazily by final segment
 
 Glob characters are `*`, `?`, `[`, and comma-bearing brace groups. A glob without a slash is matched as `**/<glob>` at every depth; a glob with a slash is matched as written relative to both the document directory and repository root. Match against files and directories and report "glob matches no files" only when neither matches.
 
@@ -137,11 +141,17 @@ Detect commands that reference non-existent package scripts or make/just targets
 
 Patterns (inline code and code blocks with lang `bash|sh|zsh|shell|console|` empty):
 - `npm run <s>`, `npm test` (requires `test` script), `pnpm <s>`, `pnpm run <s>`, `yarn <s>`, `yarn run <s>`, `bun run <s>`
+- `yarn workspace <pkg> <script>`, `pnpm --filter <pkg> <script>`, `pnpm -F <pkg> <script>`, `npm -w <pkg> run <script>`, `npm --workspace <pkg> run <script>` resolve against a workspace package's `name`; unknown packages are skipped
+- `yarn workspaces foreach ...` is skipped because it does not identify one package
 - `make <target>` → Makefile targets (regex `^([a-zA-Z0-9_.-]+):` excluding `.PHONY`)
 - `just <recipe>` → justfile
 - `turbo run <task>` → `turbo.json` tasks (pipeline or tasks key)
 
-Skip `pnpm install|add|remove|dlx|exec|create|i|up|why|ls|-v|--version` and the same set for npm/yarn/bun. Resolve `package.json` in the doc's directory, then walk up to root; in workspaces also accept scripts present in any workspace package (report as `info` "script only exists in packages/x" if not in the nearest package.json).
+- Scan inline code and non-comment lines of shell code blocks; strip from the first unquoted `#`, and never parse prose outside inline code
+- Skip `pnpm install|add|remove|dlx|exec|create|i|up|why|ls|-v|--version` and the same set for npm/yarn/bun
+- Bare `yarn <name>`, `pnpm <name>`, and `bun <name>` may invoke binaries; skip repository dependencies and names in `node_modules/.bin`
+- Skip `the`, `a`, `an`, `to`, `and`, `or`, `it`, `all`, `run`, `sure`, `use`, `do`, and `not` as make targets or just recipes
+- Resolve `package.json` from the document directory upward; workspace-only scripts are `info` with "script only exists in packages/x"
 
 ### AL003 `broken-import` (error)
 
@@ -165,6 +175,9 @@ Instruction files are sent to LLM providers on every request. Patterns:
 | Database URL with password | `(?:postgres|mysql|mongodb)(?:\+srv)?://[^:\s]+:[^@\s]{4,}@` |
 
 Exclusions: values that are obviously placeholders (`xxx`, `your-`, `<...>`, `example`, `changeme`, `123456`, `sk-...`). Report with the secret masked (first 4 chars + `****`). Never print the full value.
+
+- Generic assignment values require at least 16 characters plus at least three digits, mixed letter case, or at least 24 characters without `-`/`_`; reject lowercase word segments joined only by `-`/`_`
+- Provider-specific patterns are unchanged
 
 ### AL005 `token-budget` (warn)
 

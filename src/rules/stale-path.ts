@@ -54,6 +54,7 @@ interface SuggestionIndex {
 
 const suggestionIndexes = new WeakMap<RepoIndex, SuggestionIndex>();
 const directoryNameIndexes = new WeakMap<RepoIndex, Set<string>>();
+const pathSuffixIndexes = new WeakMap<RepoIndex, Map<string, string[]>>();
 
 interface Candidate {
   text: string;
@@ -66,7 +67,7 @@ const stalePath = {
   id: 'stale-path',
   code: 'AL001',
   defaultSeverity: 'error',
-  docs: 'Reports file, directory, and glob references that no longer resolve.',
+  docs: 'Reports unresolved file, directory, and glob references, with relocation hints for paths found elsewhere.',
   check(context) {
     const findings: Finding[] = [];
     const seen = new Set<string>();
@@ -118,6 +119,20 @@ const stalePath = {
       }
 
       if (pathExists(text, context)) {
+        continue;
+      }
+
+      const suffixMatch = findPathWithSuffix(text, context.repo);
+      if (suffixMatch !== undefined) {
+        findings.push(
+          makeFinding(
+            candidate,
+            context.doc.path,
+            `${quote(text)} does not exist here; found at ${quote(suffixMatch)}`,
+            undefined,
+            'info',
+          ),
+        );
         continue;
       }
 
@@ -211,10 +226,14 @@ function collectCandidates(doc: Doc): Candidate[] {
       if (match.index === undefined) {
         continue;
       }
+      const delimitedToken = whitespaceDelimitedToken(
+        line.text,
+        match.index,
+        match[0].length,
+      );
       if (
-        containsNonPathSyntax(
-          whitespaceDelimitedToken(line.text, match.index, match[0].length),
-        )
+        containsPlaceholder(delimitedToken) ||
+        containsNonPathSyntax(delimitedToken)
       ) {
         continue;
       }
@@ -484,6 +503,7 @@ function containsPlaceholder(candidate: string): boolean {
     candidate.includes('{{') ||
     candidate.includes('}}') ||
     candidate.includes('...') ||
+    candidate.includes('…') ||
     placeholderBracePattern.test(candidate)
   );
 }
@@ -496,7 +516,11 @@ function isGeneratedPathReference(candidate: string): boolean {
 }
 
 function containsNonPathSyntax(candidate: string): boolean {
-  return candidate.includes('"') || candidate.includes('=');
+  return (
+    candidate.includes("'") ||
+    candidate.includes('"') ||
+    candidate.includes('=')
+  );
 }
 
 function isProseCandidate(candidate: string, repo: RepoIndex): boolean {
@@ -585,6 +609,12 @@ function pathExists(candidate: string, context: RuleContext): boolean {
     return (
       home !== undefined && existsSync(path.join(home, candidate.slice(2)))
     );
+  }
+  if (candidate.startsWith('/')) {
+    const rootRelative = normalizeRepoPath(candidate.replace(/^\/+/, ''));
+    if (resolvedPathExists(rootRelative, context)) {
+      return true;
+    }
   }
   if (isAbsolutePath(candidate)) {
     return existsSync(candidate);
@@ -752,6 +782,56 @@ function singleSegmentDirectoryBasename(candidate: string): string | undefined {
   return basename === '' || globCharacterPattern.test(basename)
     ? undefined
     : basename;
+}
+
+function findPathWithSuffix(
+  candidate: string,
+  repo: RepoIndex,
+): string | undefined {
+  const segments = candidate
+    .replace(/^\/+/, '')
+    .replace(/\/+$/, '')
+    .split('/')
+    .filter((segment) => segment !== '' && segment !== '.');
+  if (segments.length < 2 || segments.some((segment) => segment === '..')) {
+    return undefined;
+  }
+
+  const suffix = segments.join('/');
+  const lastSegment = segments.at(-1);
+  if (lastSegment === undefined) {
+    return undefined;
+  }
+  return getPathSuffixIndex(repo)
+    .get(lastSegment)
+    ?.find(
+      (repoPath) => repoPath === suffix || repoPath.endsWith(`/${suffix}`),
+    );
+}
+
+function getPathSuffixIndex(repo: RepoIndex): Map<string, string[]> {
+  const cached = pathSuffixIndexes.get(repo);
+  if (cached !== undefined) {
+    return cached;
+  }
+
+  const index = new Map<string, string[]>();
+  for (const repoPath of [...repo.files, ...repo.directories]) {
+    if (repoPath === '.') {
+      continue;
+    }
+    const lastSegment = path.posix.basename(repoPath);
+    const paths = index.get(lastSegment) ?? [];
+    paths.push(repoPath);
+    index.set(lastSegment, paths);
+  }
+  for (const paths of index.values()) {
+    paths.sort(
+      (left, right) => left.length - right.length || left.localeCompare(right),
+    );
+  }
+  pathSuffixIndexes.set(repo, index);
+  return index;
 }
 
 function findDirectoryWithBasename(

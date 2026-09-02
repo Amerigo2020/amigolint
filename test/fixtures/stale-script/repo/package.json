@@ -2,6 +2,10 @@
   "private": true,
   "scripts": {
     "build": "node build.mjs",
+    "hash#script": "node hash.mjs",
     "test": "vitest run"
+  },
+  "devDependencies": {
+    "fixture-dependency": "1.0.0"
   }
 }

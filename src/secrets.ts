@@ -2,6 +2,7 @@ interface SecretDetector {
   label: string;
   pattern: RegExp;
   secretGroup?: number;
+  validate?: (secret: string) => boolean;
 }
 
 export interface SecretDetection {
@@ -46,6 +47,7 @@ const detectors: SecretDetector[] = [
     pattern:
       /(?:api[_-]?key|secret|token|password)\s*[:=]\s*["']?([A-Za-z0-9_-]{16,})/gi,
     secretGroup: 1,
+    validate: isCredentialLikeAssignment,
   },
 ];
 
@@ -58,10 +60,10 @@ export function findSecrets(raw: string): SecretDetection[] {
         continue;
       }
       const secret = match[detector.secretGroup ?? 0];
-      if (secret === undefined) {
+      if (secret === undefined || detector.validate?.(secret) === false) {
         continue;
       }
-      const relativeStart = match[0].indexOf(secret);
+      const relativeStart = match[0].lastIndexOf(secret);
       if (relativeStart < 0) {
         continue;
       }
@@ -80,6 +82,21 @@ export function findSecrets(raw: string): SecretDetection[] {
   }
 
   return detections.sort((left, right) => left.start - right.start);
+}
+
+function isCredentialLikeAssignment(value: string): boolean {
+  if (value.length < 16 || isDictionaryLikeSlug(value)) {
+    return false;
+  }
+
+  const digitCount = value.match(/\d/g)?.length ?? 0;
+  const mixesLetterCase = /[a-z]/.test(value) && /[A-Z]/.test(value);
+  const isLongUnseparatedValue = value.length >= 24 && !/[-_]/.test(value);
+  return digitCount >= 3 || mixesLetterCase || isLongUnseparatedValue;
+}
+
+function isDictionaryLikeSlug(value: string): boolean {
+  return /^[a-z]+(?:[-_][a-z]+)+$/.test(value);
 }
 
 export function maskSecret(secret: string): string {
