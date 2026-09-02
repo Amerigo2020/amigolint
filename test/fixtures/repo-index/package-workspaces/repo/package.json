@@ -1,0 +1,10 @@
+{
+  "name": "repo-index-package-workspaces-fixture",
+  "private": true,
+  "workspaces": {
+    "packages": [
+      "modules/*",
+      "!modules/ignored"
+    ]
+  }
+}

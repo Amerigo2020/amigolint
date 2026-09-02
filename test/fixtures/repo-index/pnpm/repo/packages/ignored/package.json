@@ -1,0 +1,6 @@
+{
+  "name": "@fixture/ignored",
+  "scripts": {
+    "should-not-load": "false"
+  }
+}

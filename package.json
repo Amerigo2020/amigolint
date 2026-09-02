@@ -8,11 +8,22 @@
     "url": "git+https://github.com/Amerigo2020/amigolint.git"
   },
   "type": "module",
+  "main": "dist/cli.mjs",
+  "types": "index.d.ts",
   "bin": {
     "amigolint": "dist/cli.mjs"
   },
+  "exports": {
+    ".": {
+      "types": "./index.d.ts",
+      "import": "./dist/cli.mjs",
+      "default": "./dist/cli.mjs"
+    },
+    "./schema.json": "./schema.json"
+  },
   "files": [
     "dist",
+    "index.d.ts",
     "schema.json"
   ],
   "engines": {
@@ -27,7 +38,11 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "commander": "14.0.3"
+    "commander": "14.0.3",
+    "picocolors": "1.1.1",
+    "tinyglobby": "0.2.17",
+    "yaml": "2.8.1",
+    "zod": "4.1.5"
   },
   "devDependencies": {
     "@biomejs/biome": "2.5.2",
@@ -47,5 +62,9 @@
     "platform": "node",
     "sourcemap": false,
     "target": "node20"
-  }
+  },
+  "bugs": {
+    "url": "https://github.com/Amerigo2020/amigolint/issues"
+  },
+  "homepage": "https://github.com/Amerigo2020/amigolint#readme"
 }

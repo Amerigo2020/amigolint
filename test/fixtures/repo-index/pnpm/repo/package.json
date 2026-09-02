@@ -1,0 +1,8 @@
+{
+  "name": "repo-index-pnpm-fixture",
+  "private": true,
+  "scripts": {
+    "root-only": "echo root",
+    "shared": "echo shared"
+  }
+}
