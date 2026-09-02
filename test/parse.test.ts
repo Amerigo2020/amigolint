@@ -118,7 +118,7 @@ describe('parseDoc', () => {
   it('parses markdown links and bare URLs without duplicating link targets', () => {
     const doc = parseDoc(
       'AGENTS.md',
-      'Read [local docs](docs/guide.md#start), [site](https://example.com/a), and https://openai.com/docs.',
+      'Read [local docs](docs/guide.md#start), [site](https://example.com/a), https://openai.com/docs, and <support@example.com>.',
     );
 
     expect(doc.links).toEqual([
@@ -140,6 +140,12 @@ describe('parseDoc', () => {
         target: 'https://openai.com/docs',
         isLocal: false,
       },
+      {
+        line: 1,
+        text: 'support@example.com',
+        target: 'support@example.com',
+        isLocal: false,
+      },
     ]);
   });
 
@@ -154,6 +160,22 @@ describe('parseDoc', () => {
         line: 1,
         text: 'the local page',
         target: 'docs/a_(b).md#section',
+        isLocal: true,
+      },
+    ]);
+  });
+
+  it('does not parse HTML tags or angle-bracket placeholders as links', () => {
+    const doc = parseDoc(
+      'AGENTS.md',
+      'Use <details>, </summary>, <div>, and <your-key>; read <docs/guide.md>.',
+    );
+
+    expect(doc.links).toEqual([
+      {
+        line: 1,
+        text: 'docs/guide.md',
+        target: 'docs/guide.md',
         isLocal: true,
       },
     ]);
@@ -177,6 +199,19 @@ describe('parseDoc', () => {
       { line: 2, col: 7, text: '../shared/CLAUDE.md' },
     ]);
     expect(parseDoc('AGENTS.md', '@docs/root.md').imports).toEqual([]);
+  });
+
+  it('preserves scoped glob and root-alias import tokens', () => {
+    const doc = parseDoc(
+      'CLAUDE.md',
+      'Packages @atlaskit/* and @higgsfield/quanta/*\nAlias @/path/to/file.json',
+    );
+
+    expect(doc.imports).toEqual([
+      { line: 1, col: 11, text: 'atlaskit/*' },
+      { line: 1, col: 27, text: 'higgsfield/quanta/*' },
+      { line: 2, col: 8, text: '/path/to/file.json' },
+    ]);
   });
 
   it('parses YAML frontmatter and omits it from Markdown spans', () => {

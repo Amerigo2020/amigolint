@@ -7,6 +7,7 @@ import {
   symlink,
   writeFile,
 } from 'node:fs/promises';
+import { createServer } from 'node:http';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -164,7 +165,71 @@ describe('amigolint CLI', () => {
     );
 
     expect(result.code).toBe(2);
-    expect(result.stderr).toMatch(/config/i);
+    expect(result.stderr).toContain(
+      'Could not read config `does-not-exist.json`',
+    );
+  });
+
+  it('applies an explicit config file', async () => {
+    const cwd = path.join(fixtureRoot, 'error');
+    await writeFile(
+      path.join(cwd, 'custom.json'),
+      JSON.stringify({ rules: { 'stale-path': 'off' } }),
+    );
+
+    const result = await runCli(['--config', 'custom.json'], cwd);
+
+    expect(result.code).toBe(0);
+    expect(result.stderr).toBe('');
+    expect(result.stdout).not.toContain('stale-path');
+  });
+
+  it('checks remote URLs through both --check-urls and config', async () => {
+    const server = createServer((_request, response) => {
+      response.writeHead(404).end();
+    });
+    await new Promise<void>((resolve, reject) => {
+      server.once('error', reject);
+      server.listen(0, '127.0.0.1', resolve);
+    });
+    const address = server.address();
+    if (address === null || typeof address === 'string') {
+      throw new Error('HTTP fixture did not expose a TCP port');
+    }
+
+    try {
+      const cwd = path.join(fixtureRoot, 'url-check');
+      await mkdir(cwd, { recursive: true });
+      await writeFile(
+        path.join(cwd, 'AGENTS.md'),
+        `[missing](http://127.0.0.1:${address.port}/missing)\n`,
+      );
+      const baseArgs = ['--format', 'json', '--rule', 'dead-link'];
+
+      const disabled = await runCli(baseArgs, cwd);
+      const enabledByFlag = await runCli([...baseArgs, '--check-urls'], cwd);
+      await writeFile(
+        path.join(cwd, 'amigolint.config.json'),
+        JSON.stringify({ checkUrls: true }),
+      );
+      const enabledByConfig = await runCli(baseArgs, cwd);
+
+      expect(JSON.parse(disabled.stdout).findings).toEqual([]);
+      for (const result of [enabledByFlag, enabledByConfig]) {
+        expect(result.code).toBe(0);
+        expect(JSON.parse(result.stdout).findings).toEqual([
+          expect.objectContaining({
+            code: 'AL006',
+            severity: 'info',
+            message: expect.stringContaining('returned HTTP 404'),
+          }),
+        ]);
+      }
+    } finally {
+      await new Promise<void>((resolve, reject) => {
+        server.close((error) => (error ? reject(error) : resolve()));
+      });
+    }
   });
 
   it('emits JSON that matches the public report shape', async () => {

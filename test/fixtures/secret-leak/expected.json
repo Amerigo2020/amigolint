@@ -1,0 +1,42 @@
+[
+  {
+    "line": 3,
+    "severity": "error",
+    "message": "Potential AWS access key `AKIA****` found"
+  },
+  {
+    "line": 4,
+    "severity": "error",
+    "message": "Potential API token `sk-l****` found"
+  },
+  {
+    "line": 5,
+    "severity": "error",
+    "message": "Potential GitHub token `ghp_****` found"
+  },
+  {
+    "line": 6,
+    "severity": "error",
+    "message": "Potential Slack token `xoxb****` found"
+  },
+  {
+    "line": 7,
+    "severity": "error",
+    "message": "Potential assigned credential `ABCD****` found"
+  },
+  {
+    "line": 8,
+    "severity": "error",
+    "message": "Potential JWT `eyJa****` found"
+  },
+  {
+    "line": 9,
+    "severity": "error",
+    "message": "Potential database credential `pass****` found"
+  },
+  {
+    "line": 10,
+    "severity": "error",
+    "message": "Potential private key `----****` found"
+  }
+]

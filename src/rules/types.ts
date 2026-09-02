@@ -28,5 +28,5 @@ export interface Rule {
   code: string;
   defaultSeverity: Severity;
   docs: string;
-  check(context: RuleContext): Finding[];
+  check(context: RuleContext): Finding[] | Promise<Finding[]>;
 }

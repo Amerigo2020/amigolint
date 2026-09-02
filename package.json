@@ -31,8 +31,9 @@
   },
   "packageManager": "pnpm@10.33.0",
   "scripts": {
-    "build": "tsc --noEmit && tsdown",
+    "build": "pnpm generate:schema && tsc --noEmit && tsdown",
     "dev": "tsx src/cli.ts",
+    "generate:schema": "tsx scripts/generate-schema.ts && biome format --write schema.json",
     "lint": "biome check .",
     "lint:fix": "biome check --write .",
     "test": "vitest run"

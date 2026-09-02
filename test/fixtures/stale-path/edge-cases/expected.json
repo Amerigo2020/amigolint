@@ -1,0 +1,58 @@
+[
+  {
+    "file": "AGENTS.md",
+    "line": 8,
+    "col": 30,
+    "severity": "error",
+    "message": "`@workspace/missing/*` glob matches no files"
+  },
+  {
+    "file": "AGENTS.md",
+    "line": 10,
+    "col": 19,
+    "severity": "info",
+    "message": "`*-sketch` glob matches no files"
+  },
+  {
+    "file": "AGENTS.md",
+    "line": 10,
+    "col": 34,
+    "severity": "info",
+    "message": "`*_references` glob matches no files"
+  },
+  {
+    "file": "AGENTS.md",
+    "line": 11,
+    "col": 41,
+    "severity": "error",
+    "message": "`@/path/to/file.json` does not exist"
+  },
+  {
+    "file": "AGENTS.md",
+    "line": 11,
+    "col": 67,
+    "severity": "error",
+    "message": "`~/path/to/file.json` does not exist"
+  },
+  {
+    "file": "CLAUDE.md",
+    "line": 4,
+    "col": 9,
+    "severity": "error",
+    "message": "`@/path/to/file.json` does not exist"
+  },
+  {
+    "file": "CLAUDE.md",
+    "line": 4,
+    "col": 33,
+    "severity": "warn",
+    "message": "`~/path/to/file.json` does not exist"
+  },
+  {
+    "file": "CLAUDE.md",
+    "line": 5,
+    "col": 12,
+    "severity": "warn",
+    "message": "`src/missing/*.ts` glob matches no files"
+  }
+]

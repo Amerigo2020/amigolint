@@ -5,6 +5,7 @@ import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
 import { Command } from 'commander';
 import { loadConfig } from './config.js';
+import { findRepoRoot } from './discover.js';
 import { lint } from './index.js';
 import { formatJson } from './report/json.js';
 import { formatPretty } from './report/pretty.js';
@@ -44,8 +45,9 @@ export async function main(argv: string[] = process.argv): Promise<void> {
   const cliOptions = program.opts<CliOptions>();
   const format = parseFormat(cliOptions.format);
   const maxWarnings = parseMaxWarnings(cliOptions.maxWarnings);
+  const cwd = process.cwd();
   const config = await loadConfig({
-    cwd: process.cwd(),
+    cwd: cliOptions.config === undefined ? await findRepoRoot(cwd) : cwd,
     ...(cliOptions.config === undefined ? {} : { path: cliOptions.config }),
   });
   if (cliOptions.checkUrls) {
@@ -53,7 +55,7 @@ export async function main(argv: string[] = process.argv): Promise<void> {
   }
 
   const report = await lint({
-    root: process.cwd(),
+    root: cwd,
     ...(program.args.length === 0 ? {} : { paths: program.args }),
     config,
     ...(cliOptions.rule === undefined

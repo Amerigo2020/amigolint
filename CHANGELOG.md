@@ -16,6 +16,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Hand-written Markdown parsing for frontmatter, code, links, imports, and headings
 - Per-run repository indexing for files, workspace scripts, Make, just, and Turbo
 - `stale-path` (AL001) and `stale-script` (AL002) rules with fixture coverage
+- `broken-import` (AL003), `secret-leak` (AL004), `token-budget` (AL005),
+  `dead-link` (AL006), `duplicate-rule` (AL007), `contradiction` (AL008), and
+  `frontmatter` (AL011) rules with positive and tricky-negative fixtures
+- Optional bounded remote URL checks using HEAD requests
+- Inline next-line, block, and file-level finding suppression with summary counts
+- Zod-validated configuration discovery and a generated editor schema
 - Pretty and JSON reports plus the public `lint()` API
 
 ### Changed
@@ -27,5 +33,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Improved `stale-path` precision for CSS tokens, package subpaths,
   placeholders, ambiguous bare filenames, directory globs, and skill-relative
   paths
+- Refined `stale-path` handling for bracket syntax, scoped package globs,
+  TypeScript path aliases, bare extension mentions, and ambiguous local globs
 
 [Unreleased]: https://github.com/Amerigo2020/amigolint/commits/main

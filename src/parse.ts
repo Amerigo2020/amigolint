@@ -34,7 +34,48 @@ const atxHeadingPattern = /^ {0,3}(#{1,6})(?:[ \t]+(.*)|[ \t]*)$/;
 const setextHeadingPattern = /^ {0,3}(=+|-+)[ \t]*$/;
 const angleLinkPattern = /<([^<>\s]+)>/g;
 const bareUrlPattern = /(?:https?:\/\/|ftp:\/\/|www\.)[^\s<>"']+/gi;
-const importPattern = /(^|\s)@([\w.~/-]+)/g;
+const importPattern = /(^|\s)@([^\s`<>"'()]+)/g;
+const htmlTagNames = new Set([
+  'a',
+  'article',
+  'aside',
+  'blockquote',
+  'body',
+  'br',
+  'code',
+  'details',
+  'div',
+  'em',
+  'footer',
+  'h1',
+  'h2',
+  'h3',
+  'h4',
+  'h5',
+  'h6',
+  'head',
+  'header',
+  'hr',
+  'html',
+  'img',
+  'li',
+  'main',
+  'nav',
+  'ol',
+  'p',
+  'pre',
+  'section',
+  'span',
+  'strong',
+  'summary',
+  'table',
+  'tbody',
+  'td',
+  'th',
+  'thead',
+  'tr',
+  'ul',
+]);
 
 export function detectAgent(filePath: string): AgentKind {
   const path = normalizeDocPath(filePath);
@@ -374,6 +415,9 @@ function findLinks(
     if (start === undefined || rawMatch === undefined || target === undefined) {
       continue;
     }
+    if (isNonLinkAngleTarget(target)) {
+      continue;
+    }
     const end = start + rawMatch.length;
     if (overlaps(start, end, occupied)) {
       continue;
@@ -407,6 +451,14 @@ function findLinks(
 
   found.sort((left, right) => left.start - right.start);
   return found.map(({ link }) => link);
+}
+
+function isNonLinkAngleTarget(target: string): boolean {
+  const tagName = target.replace(/^\//, '').replace(/\/$/, '').toLowerCase();
+  return (
+    htmlTagNames.has(tagName) ||
+    /^(?:your|replace|insert|example)[_-]/i.test(target)
+  );
 }
 
 interface MarkdownLinkMatch {
@@ -555,6 +607,7 @@ function isLocalTarget(target: string): boolean {
     target.startsWith('#') ||
     target.startsWith('//') ||
     target.toLowerCase().startsWith('www.') ||
+    /^[^@\s<>]+@[^@\s<>]+\.[^@\s<>]+$/.test(target) ||
     /^[a-z][a-z\d+.-]*:/i.test(target)
   );
 }

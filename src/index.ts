@@ -2,13 +2,15 @@ import { readFile } from 'node:fs/promises';
 import { createRequire } from 'node:module';
 import path from 'node:path';
 import type { LintConfig } from './config.js';
-import { mergeConfig, resolveRuleConfiguration } from './config.js';
-import { discover } from './discover.js';
+import { loadConfig, mergeConfig, resolveRuleConfiguration } from './config.js';
+import { discover, findRepoRoot } from './discover.js';
 import { parseDoc } from './parse.js';
 import { buildRepoIndex, createRepoIndexCache } from './repo-index.js';
 import type { Report } from './report/types.js';
 import { findRule, rules } from './rules/index.js';
 import type { Finding, Rule } from './rules/types.js';
+import { redactSecrets } from './secrets.js';
+import { applySuppressions } from './suppress.js';
 
 const { version } = createRequire(import.meta.url)('../package.json') as {
   version: string;
@@ -23,7 +25,10 @@ export interface LintOptions {
 
 export async function lint(options: LintOptions): Promise<Report> {
   const requestedRoot = path.resolve(options.root);
-  const config = mergeConfig(options.config);
+  const config =
+    options.config === undefined
+      ? await loadConfigForRoot(requestedRoot)
+      : mergeConfig(options.config);
   const discovery = await discover({
     cwd: requestedRoot,
     ...(options.paths === undefined ? {} : { paths: options.paths }),
@@ -38,7 +43,7 @@ export async function lint(options: LintOptions): Promise<Report> {
   );
   const repo = await buildRepoIndex(discovery.root, createRepoIndexCache());
   const selectedRules = selectRules(options.ruleIds);
-  const findings: Finding[] = [];
+  const rawFindings: Finding[] = [];
 
   for (const rule of selectedRules) {
     const configured = resolveRuleConfiguration(config, rule.id);
@@ -49,35 +54,67 @@ export async function lint(options: LintOptions): Promise<Report> {
       continue;
     }
 
-    for (const doc of docs) {
-      const ruleFindings = rule.check({
-        doc,
-        allDocs: docs,
-        repo,
-        options: configured.options,
-      });
+    const findingsByDoc = await Promise.all(
+      docs.map((doc) =>
+        rule.check({
+          doc,
+          allDocs: docs,
+          repo,
+          options: {
+            ...configured.options,
+            checkUrls: config.checkUrls,
+          },
+        }),
+      ),
+    );
+    for (const ruleFindings of findingsByDoc) {
       for (const finding of ruleFindings) {
-        findings.push(
-          configured.severity === undefined
-            ? finding
-            : { ...finding, severity: configured.severity },
+        rawFindings.push(
+          redactFindingText(
+            configured.severity === undefined
+              ? finding
+              : { ...finding, severity: configured.severity },
+          ),
         );
       }
     }
   }
 
+  const suppression = applySuppressions(rawFindings, docs);
+  const findings = suppression.findings.map(redactFindingForReport);
   findings.sort(compareFindings);
   return {
     version,
-    root: discovery.root,
+    root: redactSecrets(discovery.root),
     files: docs.map(({ path, agent, approxTokens }) => ({
-      path,
+      path: redactSecrets(path),
       agent,
       approxTokens,
     })),
     findings,
-    summary: summarize(findings),
+    summary: summarize(findings, suppression.suppressed),
   };
+}
+
+function redactFindingText(finding: Finding): Finding {
+  return {
+    ...finding,
+    message: redactSecrets(finding.message),
+    ...(finding.suggestion === undefined
+      ? {}
+      : { suggestion: redactSecrets(finding.suggestion) }),
+  };
+}
+
+function redactFindingForReport(finding: Finding): Finding {
+  return {
+    ...redactFindingText(finding),
+    file: redactSecrets(finding.file),
+  };
+}
+
+async function loadConfigForRoot(root: string): Promise<LintConfig> {
+  return loadConfig({ cwd: await findRepoRoot(root) });
 }
 
 function selectRules(ruleIds: string[] | undefined): Rule[] {
@@ -109,12 +146,12 @@ function compareFindings(left: Finding, right: Finding): number {
   );
 }
 
-function summarize(findings: Finding[]): Report['summary'] {
+function summarize(findings: Finding[], suppressed: number): Report['summary'] {
   return {
     errors: findings.filter(({ severity }) => severity === 'error').length,
     warnings: findings.filter(({ severity }) => severity === 'warn').length,
     infos: findings.filter(({ severity }) => severity === 'info').length,
-    suppressed: 0,
+    suppressed,
   };
 }
 

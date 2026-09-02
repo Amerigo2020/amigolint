@@ -38,7 +38,7 @@ interface NormalizedToken {
   leadingOffset: number;
 }
 
-const staleScript: Rule = {
+const staleScript = {
   id: 'stale-script',
   code: 'AL002',
   defaultSeverity: 'error',
@@ -65,7 +65,7 @@ const staleScript: Rule = {
         left.line - right.line || (left.col ?? 0) - (right.col ?? 0),
     );
   },
-};
+} satisfies Rule;
 
 export default staleScript;
 

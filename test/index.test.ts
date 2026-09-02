@@ -50,4 +50,36 @@ describe('lint', () => {
     });
     expect(ignored.findings).toEqual([]);
   });
+
+  it('auto-loads repository config and applies rule severity and options', async () => {
+    const root = await mkdtemp(path.join(tmpdir(), 'amigolint-api-config-'));
+    await Promise.all([
+      writeFile(
+        path.join(root, 'AGENTS.md'),
+        'Use `missing/ignored.ts` and `missing/visible.ts`\n',
+      ),
+      writeFile(
+        path.join(root, 'amigolint.config.json'),
+        JSON.stringify({
+          rules: {
+            'stale-path': ['info', { ignore: ['missing/ignored.ts'] }],
+          },
+        }),
+      ),
+    ]);
+
+    const report = await lint({
+      root,
+      paths: ['AGENTS.md'],
+      ruleIds: ['stale-path'],
+    });
+
+    expect(report.findings).toEqual([
+      expect.objectContaining({
+        rule: 'stale-path',
+        severity: 'info',
+        message: '`missing/visible.ts` does not exist',
+      }),
+    ]);
+  });
 });

@@ -1,8 +1,61 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "$schema": {
+      "type": "string"
+    },
+    "include": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "exclude": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "rules": {
+      "type": "object",
+      "propertyNames": {
+        "type": "string"
+      },
+      "additionalProperties": {
+        "anyOf": [
+          {
+            "type": "string",
+            "enum": ["error", "warn", "info", "off"]
+          },
+          {
+            "type": "array",
+            "prefixItems": [
+              {
+                "type": "string",
+                "enum": ["error", "warn", "info", "off"]
+              },
+              {
+                "type": "object",
+                "propertyNames": {
+                  "type": "string"
+                },
+                "additionalProperties": {}
+              }
+            ],
+            "minItems": 2,
+            "maxItems": 2,
+            "items": false
+          }
+        ]
+      }
+    },
+    "checkUrls": {
+      "type": "boolean"
+    }
+  },
+  "additionalProperties": false,
   "$id": "https://raw.githubusercontent.com/Amerigo2020/amigolint/main/schema.json",
   "title": "amigolint configuration",
-  "description": "Configuration for amigolint. Rule options will be added with configuration support.",
-  "type": "object",
-  "additionalProperties": true
+  "description": "Configuration for amigolint instruction-file linting"
 }

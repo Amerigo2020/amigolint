@@ -1,0 +1,17 @@
+[
+  {
+    "file": "AGENTS.md",
+    "line": 4,
+    "rule": "stale-path"
+  },
+  {
+    "file": "AGENTS.md",
+    "line": 9,
+    "rule": "stale-path"
+  },
+  {
+    "file": "AGENTS.md",
+    "line": 10,
+    "rule": "dead-link"
+  }
+]

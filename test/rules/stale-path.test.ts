@@ -12,6 +12,9 @@ const fixtureDir = fileURLToPath(
 );
 const repoRoot = path.join(fixtureDir, 'repo');
 const noDependencyFixtureDir = path.join(fixtureDir, 'no-dependency');
+const edgeCasesFixtureDir = path.join(fixtureDir, 'edge-cases');
+const pathsAliasFixtureDir = path.join(fixtureDir, 'paths-alias');
+const baseUrlAliasFixtureDir = path.join(fixtureDir, 'base-url-alias');
 const temporaryDirectories: string[] = [];
 
 afterEach(async () => {
@@ -238,5 +241,61 @@ describe('AL001 stale-path', () => {
     expect(stalePath.check({ doc, allDocs: [doc], repo, options: {} })).toEqual(
       [],
     );
+  });
+
+  it('handles dogfooding syntax edge cases without hiding path-like fallbacks', async () => {
+    const fakeHome = await mkdtemp(path.join(tmpdir(), 'amigolint-home-'));
+    temporaryDirectories.push(fakeHome);
+    vi.stubEnv('HOME', fakeHome);
+
+    const root = path.join(edgeCasesFixtureDir, 'repo');
+    const docs = await Promise.all(
+      ['AGENTS.md', 'CLAUDE.md'].map(async (file) =>
+        parseDoc(file, await readFile(path.join(root, file), 'utf8')),
+      ),
+    );
+    const expected = JSON.parse(
+      await readFile(path.join(edgeCasesFixtureDir, 'expected.json'), 'utf8'),
+    ) as Array<Record<string, unknown>>;
+    const repo = await buildRepoIndex(root);
+
+    expect(
+      docs
+        .flatMap((doc) =>
+          stalePath.check({ doc, allDocs: docs, repo, options: {} }),
+        )
+        .map(({ file, line, col, severity, message }) => ({
+          file,
+          line,
+          col,
+          severity,
+          message,
+        })),
+    ).toEqual(expected);
+  });
+
+  it.each([
+    ['paths', pathsAliasFixtureDir],
+    ['baseUrl', baseUrlAliasFixtureDir],
+  ])('skips @/ and ~/ aliases when a tsconfig defines %s', async (_, dir) => {
+    const root = path.join(dir, 'repo');
+    const raw = await readFile(path.join(root, 'AGENTS.md'), 'utf8');
+    const expected = JSON.parse(
+      await readFile(path.join(dir, 'expected.json'), 'utf8'),
+    ) as Array<Record<string, unknown>>;
+    const doc = parseDoc('AGENTS.md', raw);
+    const repo = await buildRepoIndex(root);
+
+    expect(
+      stalePath
+        .check({ doc, allDocs: [doc], repo, options: {} })
+        .map(({ file, line, col, severity, message }) => ({
+          file,
+          line,
+          col,
+          severity,
+          message,
+        })),
+    ).toEqual(expected);
   });
 });

@@ -1,0 +1,68 @@
+{
+  ".cursor/rules/missing-frontmatter.mdc": [
+    {
+      "line": 1,
+      "severity": "error",
+      "message": "Frontmatter is required for `.mdc` files"
+    }
+  ],
+  ".cursor/rules/empty.mdc": [
+    {
+      "line": 1,
+      "severity": "error",
+      "message": "Frontmatter must define at least one of `description`, `globs`, or `alwaysApply`"
+    }
+  ],
+  ".cursor/rules/bad-globs.mdc": [
+    {
+      "line": 3,
+      "severity": "error",
+      "message": "Frontmatter `globs` must be a string or string array"
+    }
+  ],
+  ".cursor/rules/good-string.mdc": [],
+  ".cursor/rules/good-array.mdc": [],
+  ".claude/skills/invalid-name/SKILL.md": [
+    {
+      "line": 2,
+      "severity": "error",
+      "message": "Frontmatter `name` must be kebab-case"
+    }
+  ],
+  ".claude/skills/missing-description/SKILL.md": [
+    {
+      "line": 1,
+      "severity": "error",
+      "message": "Frontmatter `description` is required"
+    }
+  ],
+  ".agents/skills/good-skill/SKILL.md": [],
+  ".claude/agents/bad-tools.md": [
+    {
+      "line": 4,
+      "severity": "error",
+      "message": "Frontmatter `tools` must be a comma-separated string or string array"
+    }
+  ],
+  ".claude/agents/missing-fields.md": [
+    {
+      "line": 1,
+      "severity": "error",
+      "message": "Frontmatter `name` is required"
+    },
+    {
+      "line": 1,
+      "severity": "error",
+      "message": "Frontmatter `description` is required"
+    }
+  ],
+  ".claude/agents/good.md": [],
+  ".github/instructions/broken.instructions.md": [
+    {
+      "line": 1,
+      "severity": "error",
+      "message": "Frontmatter `applyTo` is required"
+    }
+  ],
+  ".github/instructions/good.instructions.md": []
+}

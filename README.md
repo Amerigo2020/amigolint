@@ -14,9 +14,11 @@ node dist/cli.mjs
 node dist/cli.mjs AGENTS.md --format json
 ```
 
-M1 supports `--format pretty|json`, `--config <file>`, `--rule <id>[,<id>]`,
-`--max-warnings <n>`, `--quiet`, and `--no-color`. Exit code 1 means an error
-finding (or too many warnings), and exit code 2 means a runtime or config error.
+The CLI supports `--format pretty|json`, `--config <file>`,
+`--rule <id>[,<id>]`, `--max-warnings <n>`, `--check-urls`, `--quiet`, and
+`--no-color`. Exit code 1 means an error finding (or too many warnings), and
+exit code 2 means a runtime or config error. Remote links are only requested
+when `--check-urls` or `checkUrls` is enabled.
 
 ## Rules
 
@@ -24,6 +26,13 @@ finding (or too many warnings), and exit code 2 means a runtime or config error.
 | --- | --- | --- | --- |
 | AL001 | `stale-path` | error | Reports file, directory, and glob references that no longer resolve |
 | AL002 | `stale-script` | error | Reports package scripts and make, just, or turbo targets that do not exist |
+| AL003 | `broken-import` | error | Reports unresolved Claude imports, unmatched Cursor globs, and mismatched skill names |
+| AL004 | `secret-leak` | error | Reports likely credentials while masking every detected value |
+| AL005 | `token-budget` | warn | Reports files and auto-loaded agent totals over their token budgets |
+| AL006 | `dead-link` | warn | Reports missing local links and optionally checks HTTP links |
+| AL007 | `duplicate-rule` | warn | Reports substantially duplicated prose instructions |
+| AL008 | `contradiction` | warn | Reports possible conflicts between positive and negative instructions |
+| AL011 | `frontmatter` | error | Validates required agent-specific frontmatter and field types |
 
 AL001 limits ordinary prose to explicit relative paths, common source roots,
 and paths below existing top-level repository entries. It recognizes package
@@ -31,6 +40,13 @@ subpaths, CSS utility tokens, placeholders, and bare filenames found elsewhere
 in the repository. Prose and unresolved bare-filename findings are warnings. A
 package script found only in another workspace package is informational for
 AL002.
+
+Findings can be suppressed with `amigolint-disable-next-line`, paired
+`amigolint-disable`/`amigolint-enable` comments, or a top-level
+`amigolint-disable-file` comment. Configuration is loaded in order from an
+explicit `--config` path, `amigolint.config.json`, `.amigolintrc.json`, or the
+`amigolint` key in `package.json`; rule entries accept either a severity or a
+`[severity, options]` tuple. The shipped `schema.json` describes this format.
 
 ## Programmatic API
 

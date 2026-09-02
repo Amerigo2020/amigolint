@@ -1,0 +1,26 @@
+[
+  {
+    "file": ".claude/skills/lazy/SKILL.md",
+    "line": 1,
+    "severity": "warn",
+    "message": "File is ≈43 tokens (limit 30)"
+  },
+  {
+    "file": "AGENTS.md",
+    "line": 1,
+    "severity": "warn",
+    "message": "File is ≈45 tokens (limit 30)"
+  },
+  {
+    "file": "AGENTS.md",
+    "line": 1,
+    "severity": "warn",
+    "message": "Codex auto-load total is ≈45 tokens (limit 35); largest contributors: `AGENTS.md` (≈45)"
+  },
+  {
+    "file": "nested/AGENTS.md",
+    "line": 1,
+    "severity": "error",
+    "message": "File is ≈65 tokens (limit 55)"
+  }
+]
