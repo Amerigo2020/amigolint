@@ -1,7 +1,7 @@
 import { mkdtemp, readFile, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   ConfigError,
   generateConfigJsonSchema,
@@ -10,7 +10,12 @@ import {
 
 const temporaryDirectories: string[] = [];
 
+beforeEach(() => {
+  vi.stubEnv('CI', undefined);
+});
+
 afterEach(async () => {
+  vi.unstubAllEnvs();
   const { rm } = await import('node:fs/promises');
   await Promise.all(
     temporaryDirectories
@@ -100,6 +105,49 @@ describe('configuration', () => {
         'token-budget': ['error', { file: 99 }],
       },
       checkUrls: false,
+      homePaths: 'info',
+    });
+  });
+
+  it.each(['check', 'info', 'skip'] as const)(
+    'accepts homePaths: %s',
+    async (homePaths) => {
+      const root = await temporaryRoot();
+      await writeFile(
+        path.join(root, 'amigolint.config.json'),
+        JSON.stringify({ homePaths }),
+      );
+
+      await expect(loadConfig({ cwd: root })).resolves.toMatchObject({
+        homePaths,
+      });
+    },
+  );
+
+  it('rejects an invalid homePaths mode', async () => {
+    const root = await temporaryRoot();
+    await writeFile(
+      path.join(root, 'amigolint.config.json'),
+      JSON.stringify({ homePaths: 'sometimes' }),
+    );
+
+    await expect(loadConfig({ cwd: root })).rejects.toThrow(/Invalid config/);
+  });
+
+  it('defaults home paths to skip in CI without overriding explicit config', async () => {
+    const defaultRoot = await temporaryRoot();
+    const explicitRoot = await temporaryRoot();
+    await writeFile(
+      path.join(explicitRoot, 'amigolint.config.json'),
+      JSON.stringify({ homePaths: 'check' }),
+    );
+    vi.stubEnv('CI', 'true');
+
+    await expect(loadConfig({ cwd: defaultRoot })).resolves.toMatchObject({
+      homePaths: 'skip',
+    });
+    await expect(loadConfig({ cwd: explicitRoot })).resolves.toMatchObject({
+      homePaths: 'check',
     });
   });
 
@@ -119,6 +167,24 @@ describe('configuration', () => {
       include: ['https://example.com//instructions/*.md'],
       rules: { 'vague-rule': 'off' },
     });
+  });
+
+  it.each([
+    ['amigolint.config.json', { checkUrls: true }, { checkUrls: true }],
+    [
+      'package.json',
+      { amigolint: { include: ['docs/agents/*.md'] } },
+      { include: ['docs/agents/*.md'] },
+    ],
+  ])('loads UTF-8 BOM-prefixed %s', async (file, contents, expected) => {
+    const root = await temporaryRoot();
+    await writeFile(
+      path.join(root, file),
+      `\uFEFF${JSON.stringify(contents)}`,
+      'utf8',
+    );
+
+    await expect(loadConfig({ cwd: root })).resolves.toMatchObject(expected);
   });
 
   it('rejects malformed configuration with a useful zod error', async () => {

@@ -2,7 +2,7 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { parseDoc } from '../../src/parse.js';
 import { buildRepoIndex } from '../../src/repo-index.js';
 import stalePath from '../../src/rules/stale-path.js';
@@ -32,6 +32,10 @@ const precisionRoundSixFixtureDir = path.join(
   'precision-round-six',
 );
 const temporaryDirectories: string[] = [];
+
+beforeEach(() => {
+  vi.stubEnv('CI', undefined);
+});
 
 afterEach(async () => {
   vi.unstubAllEnvs();
@@ -204,6 +208,106 @@ describe('AL001 stale-path', () => {
     const absoluteFile = path.join(outside, 'existing.md');
     await writeFile(absoluteFile, '# Existing\n');
     const doc = parseDoc('AGENTS.md', `Read \`${absoluteFile}\`\n`);
+    const repo = await buildRepoIndex(root);
+
+    expect(stalePath.check({ doc, allDocs: [doc], repo, options: {} })).toEqual(
+      [],
+    );
+  });
+
+  it('reports paths that exist only with different casing', async () => {
+    const root = await mkdtemp(path.join(tmpdir(), 'amigolint-path-case-'));
+    temporaryDirectories.push(root);
+    await mkdir(path.join(root, 'src'), { recursive: true });
+    await writeFile(path.join(root, 'src', 'app.ts'), 'export {}\n');
+    const doc = parseDoc('AGENTS.md', 'Edit `src/App.ts`\n');
+    const repo = await buildRepoIndex(root);
+
+    expect(stalePath.check({ doc, allDocs: [doc], repo, options: {} })).toEqual(
+      [
+        {
+          rule: 'stale-path',
+          code: 'AL001',
+          severity: 'warn',
+          file: 'AGENTS.md',
+          line: 1,
+          col: 7,
+          message:
+            '`src/App.ts` exists only with different casing (`src/app.ts`); this fails on case-sensitive systems',
+        },
+      ],
+    );
+  });
+
+  it('supports info, check, and skip policies for home paths', async () => {
+    const root = await mkdtemp(path.join(tmpdir(), 'amigolint-home-policy-'));
+    const fakeHome = await mkdtemp(path.join(tmpdir(), 'amigolint-home-'));
+    temporaryDirectories.push(root, fakeHome);
+    vi.stubEnv('HOME', fakeHome);
+    vi.stubEnv('CI', undefined);
+    const doc = parseDoc('AGENTS.md', 'Read `~/missing.md`\n');
+    const repo = await buildRepoIndex(root);
+
+    expect(stalePath.check({ doc, allDocs: [doc], repo, options: {} })).toEqual(
+      [
+        expect.objectContaining({
+          severity: 'info',
+          message:
+            '`~/missing.md` does not exist in this home directory (machine-specific)',
+        }),
+      ],
+    );
+    expect(
+      stalePath.check({
+        doc,
+        allDocs: [doc],
+        repo,
+        options: { homePaths: 'check' },
+      }),
+    ).toEqual([
+      expect.objectContaining({
+        severity: 'error',
+        message: '`~/missing.md` does not exist',
+      }),
+    ]);
+    expect(
+      stalePath.check({
+        doc,
+        allDocs: [doc],
+        repo,
+        options: { homePaths: 'skip' },
+      }),
+    ).toEqual([]);
+
+    vi.stubEnv('CI', 'true');
+    expect(stalePath.check({ doc, allDocs: [doc], repo, options: {} })).toEqual(
+      [],
+    );
+  });
+
+  it('uses os.homedir when HOME is unavailable', async () => {
+    const root = await mkdtemp(path.join(tmpdir(), 'amigolint-homedir-'));
+    temporaryDirectories.push(root);
+    vi.stubEnv('HOME', undefined);
+    vi.stubEnv('CI', undefined);
+    const doc = parseDoc('AGENTS.md', 'Read `~/.`\n');
+    const repo = await buildRepoIndex(root);
+
+    expect(
+      stalePath.check({
+        doc,
+        allDocs: [doc],
+        repo,
+        options: { homePaths: 'check' },
+      }),
+    ).toEqual([]);
+  });
+
+  it('skips glob candidates with more than eight wildcard segments', async () => {
+    const root = await mkdtemp(path.join(tmpdir(), 'amigolint-glob-cap-'));
+    temporaryDirectories.push(root);
+    const candidate = `${Array.from({ length: 9 }, () => '**').join('/')}/*.ts`;
+    const doc = parseDoc('AGENTS.md', `Read \`${candidate}\`\n`);
     const repo = await buildRepoIndex(root);
 
     expect(stalePath.check({ doc, allDocs: [doc], repo, options: {} })).toEqual(

@@ -79,4 +79,33 @@ describe('AL011 frontmatter', () => {
       }),
     ).toEqual([]);
   });
+
+  it('reports invalid YAML once instead of misleading required fields', async () => {
+    const doc = parseDoc(
+      '.claude/skills/invalid-yaml/SKILL.md',
+      '---\nname: ]\ndescription: Invalid YAML\n---\n# Body',
+    );
+    const repo = await buildRepoIndex(repoRoot);
+
+    const findings = await frontmatter.check({
+      doc,
+      allDocs: [doc],
+      repo,
+      options: {},
+    });
+
+    expect(findings).toEqual([
+      {
+        rule: 'frontmatter',
+        code: 'AL011',
+        severity: 'error',
+        file: '.claude/skills/invalid-yaml/SKILL.md',
+        line: 1,
+        message: expect.stringMatching(
+          /^Frontmatter YAML is invalid: Unexpected flow-seq-end token/,
+        ),
+      },
+    ]);
+    expect(findings[0]?.message).not.toMatch(/[\r\n]/);
+  });
 });

@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { detectAgent, parseDoc } from '../src/parse.js';
 
 describe('detectAgent', () => {
@@ -275,6 +275,24 @@ describe('parseDoc', () => {
     expect(doc.headings).toEqual([{ line: 7, level: 1, text: 'Rule' }]);
   });
 
+  it.each([
+    ['.cursor/rules/typescript.mdc', 'description: TypeScript rules'],
+    [
+      '.claude/skills/review/SKILL.md',
+      'name: review\ndescription: Review changes',
+    ],
+    ['.github/instructions/tests.instructions.md', 'applyTo: "test/**/*.ts"'],
+  ])('parses BOM-prefixed frontmatter in %s', (file, yaml) => {
+    const doc = parseDoc(file, `\uFEFF---\n${yaml}\n---\n# Body`);
+
+    expect(doc.frontmatter).toBeDefined();
+    expect(doc.frontmatterError).toBeUndefined();
+    expect(doc.lines[0]?.text).toBe('---');
+    expect(doc.headings).toEqual([
+      { line: yaml.split('\n').length + 3, level: 1, text: 'Body' },
+    ]);
+  });
+
   it('keeps parsing when YAML frontmatter is malformed', () => {
     const doc = parseDoc(
       '.cursor/rules/broken.mdc',
@@ -282,7 +300,30 @@ describe('parseDoc', () => {
     );
 
     expect(doc.frontmatter).toEqual({});
+    expect(doc.frontmatterError).toMatch(/^Flow sequence .*end with a \]/);
     expect(doc.headings).toEqual([{ line: 4, level: 1, text: 'Still parsed' }]);
+  });
+
+  it('silences YAML parser warnings', () => {
+    const emitWarning = vi
+      .spyOn(process, 'emitWarning')
+      .mockImplementation(() => undefined);
+
+    parseDoc(
+      '.cursor/rules/custom-tag.mdc',
+      '---\ndescription: !custom foo\nglobs: "*.md"\n---\n# Body',
+    );
+
+    expect(emitWarning).not.toHaveBeenCalled();
+    emitWarning.mockRestore();
+  });
+
+  it('bounds Markdown link labels on adversarial single lines', () => {
+    const startedAt = performance.now();
+    const doc = parseDoc('AGENTS.md', '['.repeat(200_000));
+
+    expect(doc.links).toEqual([]);
+    expect(performance.now() - startedAt).toBeLessThan(1_000);
   });
 
   it('parses ATX and setext headings outside code blocks', () => {

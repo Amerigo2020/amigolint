@@ -1,5 +1,5 @@
 import { execFile } from 'node:child_process';
-import { cp, mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { cp, mkdir, mkdtemp, rm, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -141,7 +141,57 @@ describe('discover', () => {
     expect(result.files).not.toContain('nested/CLAUDE.md');
   });
 
-  it('ignores explicit files outside the repository and statically ignored paths', async () => {
+  it('rejects an explicit path that does not exist', async () => {
+    const root = await copyFixture({ git: true });
+
+    await expect(
+      discover({ cwd: root, paths: ['nope.md'] }),
+    ).rejects.toThrow('`nope.md` does not exist');
+  });
+
+  it('allows an explicit file ignored by git', async () => {
+    const root = await copyFixture({ git: true });
+
+    const result = await discover({
+      cwd: root,
+      paths: ['ignored/CLAUDE.md'],
+    });
+
+    expect(result).toEqual({
+      root,
+      files: ['ignored/CLAUDE.md'],
+    });
+  });
+
+  it.skipIf(process.platform === 'win32')(
+    'allows an explicit symlink to a file',
+    async () => {
+      const root = await copyFixture({ git: true });
+      await symlink('custom/manual.md', join(root, 'linked.md'));
+
+      const result = await discover({ cwd: root, paths: ['linked.md'] });
+
+      expect(result).toEqual({ root, files: ['linked.md'] });
+    },
+  );
+
+  it.skipIf(process.platform === 'win32')(
+    'discovers a symlinked CLAUDE.md tracked by git',
+    async () => {
+      const root = await mkdtemp(join(tmpdir(), 'amigolint-linked-doc-'));
+      temporaryDirectories.push(root);
+      await writeFile(join(root, 'AGENTS.md'), '# Instructions\n');
+      await symlink('AGENTS.md', join(root, 'CLAUDE.md'));
+      await execFileAsync('git', ['init', '--quiet'], { cwd: root });
+      await execFileAsync('git', ['add', '.'], { cwd: root });
+
+      const result = await discover({ cwd: root });
+
+      expect(result.files).toEqual(['AGENTS.md', 'CLAUDE.md']);
+    },
+  );
+
+  it('uses the containing directory as the root for an explicit file outside the repository', async () => {
     const root = await copyFixture({ git: true });
     const outside = await mkdtemp(join(tmpdir(), 'amigolint-outside-'));
     temporaryDirectories.push(outside);
@@ -150,13 +200,12 @@ describe('discover', () => {
 
     const result = await discover({
       cwd: root,
-      paths: [
-        join(outside, 'docs', 'AGENTS.md'),
-        'node_modules/decoy/CLAUDE.md',
-        'ignored/CLAUDE.md',
-      ],
+      paths: [join(outside, 'docs', 'AGENTS.md')],
     });
 
-    expect(result.files).toEqual([]);
+    expect(result).toEqual({
+      root: join(outside, 'docs'),
+      files: ['AGENTS.md'],
+    });
   });
 });

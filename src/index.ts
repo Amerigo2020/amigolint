@@ -4,6 +4,7 @@ import path from 'node:path';
 import type { LintConfig } from './config.js';
 import { loadConfig, mergeConfig, resolveRuleConfiguration } from './config.js';
 import { discover, findRepoRoot } from './discover.js';
+import { normalizeFinding } from './findings.js';
 import { parseDoc } from './parse.js';
 import { buildRepoIndex, createRepoIndexCache } from './repo-index.js';
 import type { Report } from './report/types.js';
@@ -63,17 +64,19 @@ export async function lint(options: LintOptions): Promise<Report> {
           options: {
             ...configured.options,
             checkUrls: config.checkUrls,
+            homePaths: config.homePaths,
           },
         }),
       ),
     );
     for (const ruleFindings of findingsByDoc) {
       for (const finding of ruleFindings) {
+        const normalized = normalizeFinding(finding);
         rawFindings.push(
           redactFindingText(
             configured.severity === undefined
-              ? finding
-              : { ...finding, severity: configured.severity },
+              ? normalized
+              : { ...normalized, severity: configured.severity },
           ),
         );
       }

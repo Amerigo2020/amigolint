@@ -82,4 +82,32 @@ describe('lint', () => {
       }),
     ]);
   });
+
+  it('normalizes multiline finding messages before building a report', async () => {
+    const root = await mkdtemp(path.join(tmpdir(), 'amigolint-message-'));
+    const skillDirectory = path.join(root, '.claude', 'skills', 'deploy');
+    const { mkdir } = await import('node:fs/promises');
+    await mkdir(skillDirectory, { recursive: true });
+    await writeFile(
+      path.join(skillDirectory, 'SKILL.md'),
+      [
+        '---',
+        'name: |',
+        '  deploy',
+        '  injected line',
+        'description: Test message normalization',
+        '---',
+      ].join('\n'),
+    );
+
+    const report = await lint({
+      root,
+      paths: ['.claude/skills/deploy/SKILL.md'],
+      ruleIds: ['broken-import'],
+    });
+
+    expect(report.findings).toHaveLength(1);
+    expect(report.findings[0]?.message).toContain('`deploy injected line `');
+    expect(report.findings[0]?.message).not.toMatch(/[\r\n]/);
+  });
 });

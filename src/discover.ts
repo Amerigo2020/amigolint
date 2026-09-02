@@ -120,7 +120,7 @@ async function listAllowedFiles(
   const diskFiles = await glob('**/*', {
     cwd: root,
     dot: true,
-    followSymbolicLinks: false,
+    followSymbolicLinks: true,
     ignore,
     onlyFiles: true,
   });
@@ -149,7 +149,7 @@ async function matchingFiles(
     cwd: root,
     dot: true,
     expandDirectories: false,
-    followSymbolicLinks: false,
+    followSymbolicLinks: true,
     ignore: [
       ...REPOSITORY_IGNORE_GLOBS,
       ...exclude.map((pattern) => normalizePattern(pattern)),
@@ -182,10 +182,12 @@ async function addExplicitPath(
   exclude: readonly string[],
   selectedFiles: Set<string>,
 ): Promise<void> {
-  if (isDynamicPattern(input)) {
+  const absolutePath = resolve(cwd, input);
+  const pathStat = await stat(absolutePath).catch(() => undefined);
+  if (!pathStat && isDynamicPattern(input)) {
     const pattern = explicitPattern(input, cwd, root);
     if (pattern === undefined) {
-      return;
+      throw new Error(`\`${input}\` is outside the lint root`);
     }
 
     const matches = await matchingFiles(root, [pattern], allowedFiles, exclude);
@@ -195,22 +197,22 @@ async function addExplicitPath(
     return;
   }
 
-  const absolutePath = resolve(cwd, input);
+  if (!pathStat) {
+    throw new Error(`\`${input}\` does not exist`);
+  }
+
   const repoPath = toRepoPath(root, absolutePath);
   if (repoPath === undefined) {
+    throw new Error(`\`${input}\` is outside the lint root`);
+  }
+
+  if (pathStat.isFile()) {
+    selectedFiles.add(repoPath);
     return;
   }
 
-  const pathStat = await stat(absolutePath).catch(() => undefined);
-  if (pathStat?.isFile()) {
-    if (allowedFiles.has(repoPath)) {
-      selectedFiles.add(repoPath);
-    }
-    return;
-  }
-
-  if (!pathStat?.isDirectory()) {
-    return;
+  if (!pathStat.isDirectory()) {
+    throw new Error(`\`${input}\` is not a file or directory`);
   }
 
   const prefix = repoPath === '' ? '' : `${repoPath}/`;
@@ -221,11 +223,53 @@ async function addExplicitPath(
   }
 }
 
+async function rootForExplicitPaths(
+  cwd: string,
+  repositoryRoot: string,
+  inputs: readonly string[],
+): Promise<string> {
+  let outsideRoot: string | undefined;
+  let hasInsidePath = false;
+
+  for (const input of inputs) {
+    const absolutePath = resolve(cwd, input);
+    const pathStat = await stat(absolutePath).catch(() => undefined);
+    if (!pathStat) {
+      if (!isDynamicPattern(input)) {
+        throw new Error(`\`${input}\` does not exist`);
+      }
+      continue;
+    }
+
+    if (toRepoPath(repositoryRoot, absolutePath) !== undefined) {
+      hasInsidePath = true;
+      continue;
+    }
+
+    const candidateRoot = pathStat.isDirectory()
+      ? absolutePath
+      : dirname(absolutePath);
+    if (outsideRoot !== undefined && outsideRoot !== candidateRoot) {
+      throw new Error('Explicit paths must share one lint root');
+    }
+    outsideRoot = candidateRoot;
+  }
+
+  if (outsideRoot !== undefined && hasInsidePath) {
+    throw new Error('Explicit paths must share one lint root');
+  }
+  return outsideRoot ?? repositoryRoot;
+}
+
 export async function discover(
   options: DiscoverOptions = {},
 ): Promise<DiscoveryResult> {
   const cwd = resolve(options.cwd ?? process.cwd());
-  const root = await findRepoRoot(cwd);
+  const repositoryRoot = await findRepoRoot(cwd);
+  const root =
+    options.paths === undefined || options.paths.length === 0
+      ? repositoryRoot
+      : await rootForExplicitPaths(cwd, repositoryRoot, options.paths);
   const exclude = options.exclude ?? [];
   const allowedFiles = await listAllowedFiles(root, exclude);
   const discoverableFiles = await matchingFiles(

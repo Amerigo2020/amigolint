@@ -1,7 +1,11 @@
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { z } from 'zod';
+import { stripLeadingBom } from './fs-utils.js';
+import type { HomePathMode } from './home-paths.js';
 import type { Severity } from './rules/types.js';
+
+export type { HomePathMode } from './home-paths.js';
 
 export type RuleConfiguration =
   | Severity
@@ -12,6 +16,7 @@ export interface LintConfig {
   exclude: string[];
   rules: Record<string, RuleConfiguration>;
   checkUrls: boolean;
+  homePaths: HomePathMode;
 }
 
 export const severitySchema = z.enum(['error', 'warn', 'info', 'off']);
@@ -23,6 +28,11 @@ const crossFileModeSchema = z.enum(['auto', 'all', 'none']).optional().meta({
   default: 'auto',
   description:
     'Compare instructions in automatically loaded groups, all files, or only the current file',
+});
+const homePathModeSchema = z.enum(['check', 'info', 'skip']).optional().meta({
+  default: 'info',
+  description:
+    'Check machine-specific home paths, report them as info, or skip them',
 });
 const comparisonRuleOptionsSchema = z
   .object({ crossFile: crossFileModeSchema })
@@ -44,6 +54,7 @@ export const configSchema = z
     exclude: z.array(z.string()).optional(),
     rules: rulesSchema.optional(),
     checkUrls: z.boolean().optional(),
+    homePaths: homePathModeSchema,
   })
   .strict();
 
@@ -52,6 +63,7 @@ export const defaultConfig: LintConfig = {
   exclude: [],
   rules: {},
   checkUrls: false,
+  homePaths: 'info',
 };
 
 export class ConfigError extends Error {
@@ -124,7 +136,7 @@ async function readJsonFile(
   }
 
   try {
-    return JSON.parse(stripJsonComments(source)) as unknown;
+    return JSON.parse(stripJsonComments(stripLeadingBom(source))) as unknown;
   } catch (error) {
     throw new ConfigError(
       `Could not parse config ${quotePath(displayPath)}: ${errorMessage(error)}`,
@@ -216,6 +228,9 @@ function validateConfig(value: unknown, displayPath: string): LintConfig {
     ...(result.data.checkUrls === undefined
       ? {}
       : { checkUrls: result.data.checkUrls }),
+    ...(result.data.homePaths === undefined
+      ? {}
+      : { homePaths: result.data.homePaths }),
   });
 }
 
@@ -283,6 +298,8 @@ export function mergeConfig(config: Partial<LintConfig> = {}): LintConfig {
     exclude: [...(config.exclude ?? defaultConfig.exclude)],
     rules: { ...defaultConfig.rules, ...(config.rules ?? {}) },
     checkUrls: config.checkUrls ?? defaultConfig.checkUrls,
+    homePaths:
+      config.homePaths ?? (process.env.CI ? 'skip' : defaultConfig.homePaths),
   };
 }
 

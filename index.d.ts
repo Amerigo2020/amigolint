@@ -10,6 +10,7 @@ export type AgentKind =
   | 'generic';
 
 export type Severity = 'error' | 'warn' | 'info' | 'off';
+export type HomePathMode = 'check' | 'info' | 'skip';
 
 export interface Finding {
   rule: string;
@@ -54,6 +55,7 @@ export interface LintConfig {
   exclude: string[];
   rules: Record<string, RuleConfiguration>;
   checkUrls: boolean;
+  homePaths: HomePathMode;
 }
 
 export interface LintOptions {
