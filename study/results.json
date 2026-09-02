@@ -1,726 +1,836 @@
 {
-  "schemaVersion": 1,
-  "generatedAt": "2026-09-02T16:24:27.285Z",
+  "schemaVersion": 2,
+  "generatedAt": "2026-09-02T22:54:27.103Z",
   "repositories": {
-    "1amageek/SwiftAgent": {
+    "abi/screenshot-to-code": {
       "status": "analysed",
-      "approxTokens": 15170,
+      "approxTokens": 938,
       "stalePathError": true,
-      "staleScript": false
+      "staleScript": false,
+      "anyError": true
     },
-    "abh/ntppool": {
+    "addyosmani/agent-skills": {
       "status": "analysed",
-      "approxTokens": 6228,
+      "approxTokens": 7473,
       "stalePathError": true,
-      "staleScript": true
+      "staleScript": true,
+      "anyError": true
     },
-    "afragen/git-updater": {
+    "affaan-m/ECC": {
       "status": "analysed",
-      "approxTokens": 1004,
+      "approxTokens": 103049,
+      "stalePathError": true,
+      "staleScript": true,
+      "anyError": true
+    },
+    "angular/angular": {
+      "status": "analysed",
+      "approxTokens": 1769,
       "stalePathError": false,
-      "staleScript": false
+      "staleScript": true,
+      "anyError": true
     },
-    "amurata/cc-tools": {
+    "anomalyco/opencode": {
       "status": "analysed",
-      "approxTokens": 11316,
+      "approxTokens": 23953,
       "stalePathError": true,
-      "staleScript": false
+      "staleScript": true,
+      "anyError": true
     },
-    "animeshkundu/youtube-audio": {
+    "ansible/ansible": {
       "status": "analysed",
-      "approxTokens": 7787,
+      "approxTokens": 5358,
       "stalePathError": true,
-      "staleScript": false
+      "staleScript": false,
+      "anyError": true
     },
-    "asafelobotomy/reshadelinux": {
+    "ant-design/ant-design": {
       "status": "analysed",
-      "approxTokens": 10071,
+      "approxTokens": 14136,
       "stalePathError": true,
-      "staleScript": false
+      "staleScript": true,
+      "anyError": true
     },
-    "atharvavdeo/agent-mem": {
+    "apache/echarts": {
       "status": "analysed",
-      "approxTokens": 563,
+      "approxTokens": 1263,
       "stalePathError": true,
-      "staleScript": false
+      "staleScript": false,
+      "anyError": true
     },
-    "avrabe/mcp-loxone": {
+    "apache/superset": {
       "status": "analysed",
-      "approxTokens": 3982,
+      "approxTokens": 12832,
       "stalePathError": true,
-      "staleScript": true
+      "staleScript": true,
+      "anyError": true
     },
-    "Belkins/revenue-os": {
+    "astral-sh/uv": {
       "status": "analysed",
-      "approxTokens": 2128,
-      "stalePathError": true,
-      "staleScript": false
+      "approxTokens": 546,
+      "stalePathError": false,
+      "staleScript": false,
+      "anyError": false
     },
-    "benkaiser/joey-mcp-client": {
+    "avelino/awesome-go": {
       "status": "analysed",
-      "approxTokens": 2173,
+      "approxTokens": 786,
       "stalePathError": true,
-      "staleScript": false
+      "staleScript": false,
+      "anyError": true
     },
-    "blakemcbride/Dynace": {
+    "axios/axios": {
       "status": "analysed",
-      "approxTokens": 1278,
-      "stalePathError": true,
-      "staleScript": true
+      "approxTokens": 3718,
+      "stalePathError": false,
+      "staleScript": false,
+      "anyError": false
     },
-    "blopa/Resume-Builder": {
+    "browser-use/browser-use": {
       "status": "analysed",
-      "approxTokens": 3503,
+      "approxTokens": 13774,
       "stalePathError": true,
-      "staleScript": false
+      "staleScript": false,
+      "anyError": true
     },
-    "bmad-labs/skills": {
+    "bytedance/deer-flow": {
       "status": "analysed",
-      "approxTokens": 730,
+      "approxTokens": 135380,
       "stalePathError": true,
-      "staleScript": false
+      "staleScript": true,
+      "anyError": true
     },
-    "briiirussell/cybersecurity-skills": {
+    "caddyserver/caddy": {
+      "status": "analysed",
+      "approxTokens": 2234,
+      "stalePathError": false,
+      "staleScript": false,
+      "anyError": false
+    },
+    "career-ops-hq/career-ops": {
+      "status": "analysed",
+      "approxTokens": 17165,
+      "stalePathError": true,
+      "staleScript": false,
+      "anyError": true
+    },
+    "cline/cline": {
+      "status": "analysed",
+      "approxTokens": 27412,
+      "stalePathError": true,
+      "staleScript": true,
+      "anyError": true
+    },
+    "code-yeongyu/oh-my-openagent": {
+      "status": "analysed",
+      "approxTokens": 241742,
+      "stalePathError": true,
+      "staleScript": true,
+      "anyError": true
+    },
+    "Comfy-Org/ComfyUI": {
+      "status": "analysed",
+      "approxTokens": 6824,
+      "stalePathError": false,
+      "staleScript": false,
+      "anyError": false
+    },
+    "deepseek-ai/deepseek-harness": {
+      "status": "analysed",
+      "approxTokens": 53169,
+      "stalePathError": true,
+      "staleScript": true,
+      "anyError": true
+    },
+    "denoland/deno": {
+      "status": "analysed",
+      "approxTokens": 13164,
+      "stalePathError": false,
+      "staleScript": false,
+      "anyError": false
+    },
+    "DietrichGebert/ponytail": {
+      "status": "analysed",
+      "approxTokens": 3526,
+      "stalePathError": false,
+      "staleScript": false,
+      "anyError": true
+    },
+    "docling-project/docling": {
+      "status": "analysed",
+      "approxTokens": 5792,
+      "stalePathError": false,
+      "staleScript": false,
+      "anyError": false
+    },
+    "earendil-works/pi": {
+      "status": "analysed",
+      "approxTokens": 3309,
+      "stalePathError": false,
+      "staleScript": false,
+      "anyError": false
+    },
+    "Egonex-AI/Understand-Anything": {
+      "status": "analysed",
+      "approxTokens": 1884,
+      "stalePathError": true,
+      "staleScript": false,
+      "anyError": true
+    },
+    "excalidraw/excalidraw": {
+      "status": "analysed",
+      "approxTokens": 872,
+      "stalePathError": false,
+      "staleScript": false,
+      "anyError": false
+    },
+    "facebook/docusaurus": {
+      "status": "analysed",
+      "approxTokens": 1149,
+      "stalePathError": false,
+      "staleScript": false,
+      "anyError": false
+    },
+    "fatedier/frp": {
+      "status": "analysed",
+      "approxTokens": 296,
+      "stalePathError": false,
+      "staleScript": false,
+      "anyError": false
+    },
+    "firecrawl/firecrawl": {
+      "status": "analysed",
+      "approxTokens": 870,
+      "stalePathError": false,
+      "staleScript": true,
+      "anyError": true
+    },
+    "Fission-AI/OpenSpec": {
+      "status": "analysed",
+      "approxTokens": 7464,
+      "stalePathError": false,
+      "staleScript": false,
+      "anyError": false
+    },
+    "garrytan/gstack": {
+      "status": "analysed",
+      "approxTokens": 14794,
+      "stalePathError": true,
+      "staleScript": false,
+      "anyError": true
+    },
+    "github/spec-kit": {
+      "status": "analysed",
+      "approxTokens": 8609,
+      "stalePathError": true,
+      "staleScript": false,
+      "anyError": true
+    },
+    "gohugoio/hugo": {
+      "status": "analysed",
+      "approxTokens": 764,
+      "stalePathError": true,
+      "staleScript": false,
+      "anyError": true
+    },
+    "grafana/grafana": {
+      "status": "analysed",
+      "approxTokens": 43406,
+      "stalePathError": true,
+      "staleScript": false,
+      "anyError": true
+    },
+    "Graphify-Labs/graphify": {
+      "status": "analysed",
+      "approxTokens": 115,
+      "stalePathError": false,
+      "staleScript": false,
+      "anyError": false
+    },
+    "gsd-build/get-shit-done": {
+      "status": "analysed",
+      "approxTokens": 16044,
+      "stalePathError": true,
+      "staleScript": true,
+      "anyError": true
+    },
+    "hiyouga/LlamaFactory": {
+      "status": "analysed",
+      "approxTokens": 12323,
+      "stalePathError": true,
+      "staleScript": false,
+      "anyError": true
+    },
+    "home-assistant/core": {
+      "status": "analysed",
+      "approxTokens": 15883,
+      "stalePathError": false,
+      "staleScript": false,
+      "anyError": false
+    },
+    "huggingface/transformers": {
+      "status": "analysed",
+      "approxTokens": 1981,
+      "stalePathError": true,
+      "staleScript": true,
+      "anyError": true
+    },
+    "infiniflow/ragflow": {
+      "status": "analysed",
+      "approxTokens": 6280,
+      "stalePathError": true,
+      "staleScript": true,
+      "anyError": true
+    },
+    "jesseduffield/lazygit": {
+      "status": "analysed",
+      "approxTokens": 6848,
+      "stalePathError": false,
+      "staleScript": false,
+      "anyError": false
+    },
+    "jgraph/drawio-desktop": {
+      "status": "analysed",
+      "approxTokens": 3129,
+      "stalePathError": true,
+      "staleScript": false,
+      "anyError": true
+    },
+    "JuliusBrussee/caveman": {
+      "status": "analysed",
+      "approxTokens": 65417,
+      "stalePathError": true,
+      "staleScript": true,
+      "anyError": true
+    },
+    "koala73/worldmonitor": {
+      "status": "analysed",
+      "approxTokens": 9429,
+      "stalePathError": true,
+      "staleScript": false,
+      "anyError": true
+    },
+    "kubernetes/kubernetes": {
+      "status": "analysed",
+      "approxTokens": 440,
+      "stalePathError": false,
+      "staleScript": true,
+      "anyError": true
+    },
+    "langchain-ai/langchain": {
+      "status": "analysed",
+      "approxTokens": 10480,
+      "stalePathError": true,
+      "staleScript": true,
+      "anyError": true
+    },
+    "langflow-ai/langflow": {
+      "status": "analysed",
+      "approxTokens": 35558,
+      "stalePathError": true,
+      "staleScript": true,
+      "anyError": true
+    },
+    "langgenius/dify": {
+      "status": "analysed",
+      "approxTokens": 11755,
+      "stalePathError": true,
+      "staleScript": false,
+      "anyError": true
+    },
+    "lobehub/lobehub": {
+      "status": "analysed",
+      "approxTokens": 115817,
+      "stalePathError": true,
+      "staleScript": true,
+      "anyError": true
+    },
+    "localstack/localstack": {
+      "status": "analysed",
+      "approxTokens": 2058,
+      "stalePathError": true,
+      "staleScript": false,
+      "anyError": true
+    },
+    "louislam/uptime-kuma": {
+      "status": "analysed",
+      "approxTokens": 3019,
+      "stalePathError": true,
+      "staleScript": false,
+      "anyError": true
+    },
+    "mem0ai/mem0": {
+      "status": "analysed",
+      "approxTokens": 15245,
+      "stalePathError": true,
+      "staleScript": true,
+      "anyError": true
+    },
+    "microsoft/playwright": {
+      "status": "analysed",
+      "approxTokens": 7182,
+      "stalePathError": false,
+      "staleScript": false,
+      "anyError": false
+    },
+    "microsoft/vscode": {
+      "status": "analysed",
+      "approxTokens": 75394,
+      "stalePathError": true,
+      "staleScript": true,
+      "anyError": true
+    },
+    "microsoft/Web-Dev-For-Beginners": {
+      "status": "analysed",
+      "approxTokens": 194250,
+      "stalePathError": false,
+      "staleScript": true,
+      "anyError": true
+    },
+    "moby/moby": {
+      "status": "analysed",
+      "approxTokens": 630,
+      "stalePathError": false,
+      "staleScript": false,
+      "anyError": true
+    },
+    "modelcontextprotocol/servers": {
+      "status": "analysed",
+      "approxTokens": 2003,
+      "stalePathError": false,
+      "staleScript": false,
+      "anyError": false
+    },
+    "mui/material-ui": {
+      "status": "analysed",
+      "approxTokens": 19090,
+      "stalePathError": true,
+      "staleScript": true,
+      "anyError": true
+    },
+    "n8n-io/n8n": {
+      "status": "analysed",
+      "approxTokens": 106382,
+      "stalePathError": true,
+      "staleScript": false,
+      "anyError": true
+    },
+    "nektos/act": {
+      "status": "analysed",
+      "approxTokens": 816,
+      "stalePathError": true,
+      "staleScript": false,
+      "anyError": true
+    },
+    "netdata/netdata": {
+      "status": "analysed",
+      "approxTokens": 107637,
+      "stalePathError": true,
+      "staleScript": true,
+      "anyError": true
+    },
+    "nextlevelbuilder/ui-ux-pro-max-skill": {
+      "status": "analysed",
+      "approxTokens": 18194,
+      "stalePathError": true,
+      "staleScript": true,
+      "anyError": true
+    },
+    "nodejs/node": {
+      "status": "analysed",
+      "approxTokens": 856,
+      "stalePathError": false,
+      "staleScript": false,
+      "anyError": false
+    },
+    "NousResearch/hermes-agent": {
+      "status": "analysed",
+      "approxTokens": 29542,
+      "stalePathError": true,
+      "staleScript": false,
+      "anyError": true
+    },
+    "ollama/ollama": {
+      "status": "analysed",
+      "approxTokens": 124,
+      "stalePathError": false,
+      "staleScript": false,
+      "anyError": false
+    },
+    "openai/codex": {
+      "status": "analysed",
+      "approxTokens": 6403,
+      "stalePathError": true,
+      "staleScript": false,
+      "anyError": true
+    },
+    "openclaw/openclaw": {
+      "status": "analysed",
+      "approxTokens": 207518,
+      "stalePathError": true,
+      "staleScript": true,
+      "anyError": true
+    },
+    "OpenHands/OpenHands": {
+      "status": "analysed",
+      "approxTokens": 33344,
+      "stalePathError": true,
+      "staleScript": false,
+      "anyError": true
+    },
+    "openinterpreter/openinterpreter": {
+      "status": "analysed",
+      "approxTokens": 6403,
+      "stalePathError": true,
+      "staleScript": false,
+      "anyError": true
+    },
+    "oven-sh/bun": {
+      "status": "analysed",
+      "approxTokens": 46927,
+      "stalePathError": true,
+      "staleScript": true,
+      "anyError": true
+    },
+    "Panniantong/Agent-Reach": {
+      "status": "analysed",
+      "approxTokens": 618,
+      "stalePathError": false,
+      "staleScript": false,
+      "anyError": false
+    },
+    "paperclipai/paperclip": {
+      "status": "analysed",
+      "approxTokens": 87565,
+      "stalePathError": true,
+      "staleScript": true,
+      "anyError": true
+    },
+    "pbakaus/impeccable": {
+      "status": "analysed",
+      "approxTokens": 29711,
+      "stalePathError": true,
+      "staleScript": true,
+      "anyError": true
+    },
+    "prometheus/prometheus": {
+      "status": "analysed",
+      "approxTokens": 1474,
+      "stalePathError": false,
+      "staleScript": false,
+      "anyError": false
+    },
+    "pytorch/pytorch": {
+      "status": "analysed",
+      "approxTokens": 60467,
+      "stalePathError": true,
+      "staleScript": false,
+      "anyError": true
+    },
+    "react/react": {
+      "status": "analysed",
+      "approxTokens": 5224,
+      "stalePathError": false,
+      "staleScript": false,
+      "anyError": false
+    },
+    "realworld-apps/realworld": {
       "status": "analysed",
       "approxTokens": 759,
-      "stalePathError": true,
-      "staleScript": false
-    },
-    "broadinstitute/delphy": {
-      "status": "analysed",
-      "approxTokens": 3996,
-      "stalePathError": true,
-      "staleScript": false
-    },
-    "BrowserOperator/browser-operator-core": {
-      "status": "analysed",
-      "approxTokens": 6536,
-      "stalePathError": true,
-      "staleScript": false
-    },
-    "camomillacms/camomilla-core": {
-      "status": "analysed",
-      "approxTokens": 25251,
-      "stalePathError": true,
-      "staleScript": true
-    },
-    "CarbeneAI/Talon": {
-      "status": "analysed",
-      "approxTokens": 560,
-      "stalePathError": true,
-      "staleScript": false
-    },
-    "chenxizhang/m365copilot-mcp": {
-      "status": "analysed",
-      "approxTokens": 5301,
-      "stalePathError": true,
-      "staleScript": false
-    },
-    "cross-platform-actions/action": {
-      "status": "analysed",
-      "approxTokens": 1162,
-      "stalePathError": true,
-      "staleScript": false
-    },
-    "currymud/sasha": {
-      "status": "analysed",
-      "approxTokens": 8090,
       "stalePathError": false,
-      "staleScript": false
+      "staleScript": false,
+      "anyError": false
     },
-    "dashpay/tenderdash": {
+    "rtk-ai/rtk": {
       "status": "analysed",
-      "approxTokens": 1139,
+      "approxTokens": 59518,
       "stalePathError": true,
-      "staleScript": false
+      "staleScript": true,
+      "anyError": true
     },
-    "dejuknow/md-redline": {
+    "rust-lang/rust": {
       "status": "analysed",
-      "approxTokens": 34270,
-      "stalePathError": true,
-      "staleScript": false
-    },
-    "dgunzy/flux9s": {
-      "status": "analysed",
-      "approxTokens": 7158,
+      "approxTokens": 4509,
       "stalePathError": false,
-      "staleScript": false
+      "staleScript": false,
+      "anyError": false
     },
-    "dl4rce/flaiwheel": {
+    "rustdesk/rustdesk": {
       "status": "analysed",
-      "approxTokens": 3338,
+      "approxTokens": 1629,
       "stalePathError": true,
-      "staleScript": false
+      "staleScript": false,
+      "anyError": true
     },
-    "DocRoms/Kronn": {
+    "ruvnet/ruflo": {
       "status": "analysed",
-      "approxTokens": 7701,
+      "approxTokens": 609180,
       "stalePathError": true,
-      "staleScript": true
+      "staleScript": true,
+      "anyError": true
     },
-    "dyatko/arkit": {
+    "ruvnet/RuView": {
       "status": "analysed",
-      "approxTokens": 5049,
+      "approxTokens": 146885,
       "stalePathError": true,
-      "staleScript": false
+      "staleScript": true,
+      "anyError": true
     },
-    "ericrosenberg1/CityBot2": {
+    "scikit-learn/scikit-learn": {
       "status": "analysed",
-      "approxTokens": 244,
+      "approxTokens": 366,
       "stalePathError": false,
-      "staleScript": false
+      "staleScript": false,
+      "anyError": false
     },
-    "finos/git-proxy": {
+    "Significant-Gravitas/AutoGPT": {
       "status": "analysed",
-      "approxTokens": 8887,
+      "approxTokens": 86892,
       "stalePathError": true,
-      "staleScript": false
+      "staleScript": true,
+      "anyError": true
     },
-    "GaZmagik/claude-memory-plugin": {
+    "storybookjs/storybook": {
       "status": "analysed",
-      "approxTokens": 52,
+      "approxTokens": 18232,
+      "stalePathError": true,
+      "staleScript": false,
+      "anyError": true
+    },
+    "strapi/strapi": {
+      "status": "analysed",
+      "approxTokens": 3251,
+      "stalePathError": true,
+      "staleScript": true,
+      "anyError": true
+    },
+    "sveltejs/svelte": {
+      "status": "analysed",
+      "approxTokens": 807,
+      "stalePathError": true,
+      "staleScript": false,
+      "anyError": true
+    },
+    "TheAlgorithms/Python": {
+      "status": "analysed",
+      "approxTokens": 804,
       "stalePathError": false,
-      "staleScript": false
+      "staleScript": false,
+      "anyError": false
     },
-    "geneontology/go-annotation": {
+    "thedotmack/claude-mem": {
       "status": "analysed",
-      "approxTokens": 2377,
+      "approxTokens": 1457,
       "stalePathError": true,
-      "staleScript": false
+      "staleScript": false,
+      "anyError": true
     },
-    "getenu/enu": {
-      "status": "analysed",
-      "approxTokens": 5759,
-      "stalePathError": true,
-      "staleScript": false
-    },
-    "guess/claude_code": {
-      "status": "analysed",
-      "approxTokens": 14187,
-      "stalePathError": true,
-      "staleScript": true
-    },
-    "haddocking/haddock3": {
-      "status": "analysed",
-      "approxTokens": 2474,
-      "stalePathError": true,
-      "staleScript": false
-    },
-    "HexmosTech/git-lrc": {
-      "status": "analysed",
-      "approxTokens": 3058,
-      "stalePathError": true,
-      "staleScript": false
-    },
-    "http4k/examples": {
-      "status": "analysed",
-      "approxTokens": 955,
-      "stalePathError": true,
-      "staleScript": false
-    },
-    "IlyaGrshin/wallet_animations": {
-      "status": "analysed",
-      "approxTokens": 54338,
-      "stalePathError": true,
-      "staleScript": false
-    },
-    "janderswag/docuchat.app": {
-      "status": "analysed",
-      "approxTokens": 1515,
-      "stalePathError": true,
-      "staleScript": false
-    },
-    "jbetancur/react-data-table-component": {
-      "status": "analysed",
-      "approxTokens": 1931,
-      "stalePathError": true,
-      "staleScript": false
-    },
-    "jdinkla/from-the-ground-up-ray-tracer": {
-      "status": "analysed",
-      "approxTokens": 9961,
-      "stalePathError": true,
-      "staleScript": true
-    },
-    "Jesseovo/last30days-skill-cn": {
-      "status": "analysed",
-      "approxTokens": 367,
-      "stalePathError": false,
-      "staleScript": false
-    },
-    "JetBrains/youtrackdb": {
-      "status": "analysed",
-      "approxTokens": 236641,
-      "stalePathError": true,
-      "staleScript": true
-    },
-    "JJenglert1/gtm-engineer-starter-kit": {
-      "status": "analysed",
-      "approxTokens": 761,
-      "stalePathError": false,
-      "staleScript": false
-    },
-    "jodli/CoffeeShotTimer": {
-      "status": "analysed",
-      "approxTokens": 1873,
-      "stalePathError": true,
-      "staleScript": false
-    },
-    "johnhues/aether-game-utils": {
-      "status": "analysed",
-      "approxTokens": 1182,
-      "stalePathError": true,
-      "staleScript": false
-    },
-    "Jovancoding/Network-AI": {
-      "status": "analysed",
-      "approxTokens": 5134,
-      "stalePathError": true,
-      "staleScript": false
-    },
-    "just-every/mcp-read-website-fast": {
-      "status": "analysed",
-      "approxTokens": 1508,
-      "stalePathError": true,
-      "staleScript": false
-    },
-    "justinabrahms/agent-chat": {
-      "status": "analysed",
-      "approxTokens": 4669,
-      "stalePathError": true,
-      "staleScript": false
-    },
-    "KaiserGranatapfel/GameCubeRecompiled": {
-      "status": "analysed",
-      "approxTokens": 913,
-      "stalePathError": true,
-      "staleScript": false
-    },
-    "kaluchi/jdtbridge": {
-      "status": "analysed",
-      "approxTokens": 7730,
-      "stalePathError": true,
-      "staleScript": true
-    },
-    "kingbootoshi/codex-orchestrator": {
-      "status": "analysed",
-      "approxTokens": 574,
-      "stalePathError": true,
-      "staleScript": true
-    },
-    "LedgerHQ/app-boilerplate": {
-      "status": "analysed",
-      "approxTokens": 11,
-      "stalePathError": true,
-      "staleScript": false
-    },
-    "liuxingqitd/skills-hub": {
-      "status": "analysed",
-      "approxTokens": 1064,
-      "stalePathError": true,
-      "staleScript": false
-    },
-    "matiaszanolli/sega-vr-disasm": {
-      "status": "analysed",
-      "approxTokens": 4443,
-      "stalePathError": true,
-      "staleScript": false
-    },
-    "mforce/claudely": {
-      "status": "analysed",
-      "approxTokens": 279,
-      "stalePathError": true,
-      "staleScript": false
-    },
-    "microsoft/Agent365-devTools": {
-      "status": "analysed",
-      "approxTokens": 64565,
-      "stalePathError": true,
-      "staleScript": false
-    },
-    "mkdir700/EchoPlayer": {
+    "traefik/traefik": {
       "status": "analysed",
       "approxTokens": 5588,
-      "stalePathError": true,
-      "staleScript": false
-    },
-    "modery/PowerDocu": {
-      "status": "analysed",
-      "approxTokens": 8200,
-      "stalePathError": true,
-      "staleScript": false
-    },
-    "monemone-org/ChromeSideBar": {
-      "status": "analysed",
-      "approxTokens": 960,
       "stalePathError": false,
-      "staleScript": false
+      "staleScript": false,
+      "anyError": false
     },
-    "moq-dev/web-transport": {
+    "ultraworkers/claw-code": {
       "status": "analysed",
-      "approxTokens": 988,
+      "approxTokens": 9684,
+      "stalePathError": true,
+      "staleScript": false,
+      "anyError": true
+    },
+    "usememos/memos": {
+      "status": "analysed",
+      "approxTokens": 1893,
       "stalePathError": false,
-      "staleScript": false
+      "staleScript": true,
+      "anyError": true
     },
-    "nathan237/TrustOS": {
+    "vercel/next.js": {
       "status": "analysed",
-      "approxTokens": 3225,
+      "approxTokens": 51386,
       "stalePathError": true,
-      "staleScript": false
+      "staleScript": true,
+      "anyError": true
     },
-    "neuromechanist/biosigio": {
+    "vinta/awesome-python": {
       "status": "analysed",
-      "approxTokens": 1847,
+      "approxTokens": 4947,
+      "stalePathError": true,
+      "staleScript": false,
+      "anyError": true
+    },
+    "vllm-project/vllm": {
+      "status": "analysed",
+      "approxTokens": 8740,
+      "stalePathError": true,
+      "staleScript": false,
+      "anyError": true
+    },
+    "warpdotdev/warp": {
+      "status": "analysed",
+      "approxTokens": 67331,
+      "stalePathError": true,
+      "staleScript": false,
+      "anyError": true
+    },
+    "webpack/webpack": {
+      "status": "analysed",
+      "approxTokens": 20461,
+      "stalePathError": true,
+      "staleScript": true,
+      "anyError": true
+    },
+    "yangshun/tech-interview-handbook": {
+      "status": "analysed",
+      "approxTokens": 1154,
       "stalePathError": false,
-      "staleScript": false
+      "staleScript": false,
+      "anyError": false
     },
-    "oalanicolas/claude-design-premium": {
+    "zed-industries/zed": {
       "status": "analysed",
-      "approxTokens": 6680,
+      "approxTokens": 14721,
       "stalePathError": true,
-      "staleScript": false
+      "staleScript": false,
+      "anyError": true
     },
-    "OriNachum/claude-code-guide": {
+    "ZhuLinsen/daily_stock_analysis": {
       "status": "analysed",
-      "approxTokens": 6052,
+      "approxTokens": 6935,
       "stalePathError": true,
-      "staleScript": false
-    },
-    "patrick-motard/dotfiles": {
-      "status": "analysed",
-      "approxTokens": 1720,
-      "stalePathError": true,
-      "staleScript": false
-    },
-    "pdreker/fritz_exporter": {
-      "status": "analysed",
-      "approxTokens": 4503,
-      "stalePathError": true,
-      "staleScript": false
-    },
-    "Perspective-AI/agentboard": {
-      "status": "analysed",
-      "approxTokens": 1976,
-      "stalePathError": true,
-      "staleScript": false
-    },
-    "PinchOfData/claude-dungeon-master": {
-      "status": "analysed",
-      "approxTokens": 1421,
-      "stalePathError": true,
-      "staleScript": false
-    },
-    "pixelate/wavesync": {
-      "status": "analysed",
-      "approxTokens": 94,
-      "stalePathError": false,
-      "staleScript": false
-    },
-    "pixell-global/sayou": {
-      "status": "analysed",
-      "approxTokens": 520,
-      "stalePathError": true,
-      "staleScript": false
-    },
-    "romiluz13/cc10x": {
-      "status": "analysed",
-      "approxTokens": 620,
-      "stalePathError": true,
-      "staleScript": false
-    },
-    "Roznoshchik/Lurnby": {
-      "status": "analysed",
-      "approxTokens": 2801,
-      "stalePathError": true,
-      "staleScript": false
-    },
-    "rtk-ai/grit": {
-      "status": "analysed",
-      "approxTokens": 1825,
-      "stalePathError": false,
-      "staleScript": true
-    },
-    "sei-newbear/xp-harness": {
-      "status": "analysed",
-      "approxTokens": 19108,
-      "stalePathError": true,
-      "staleScript": false
-    },
-    "semos-labs/attyx": {
-      "status": "analysed",
-      "approxTokens": 2374,
-      "stalePathError": true,
-      "staleScript": false
-    },
-    "SerroAI/program-memory": {
-      "status": "analysed",
-      "approxTokens": 493,
-      "stalePathError": false,
-      "staleScript": false
-    },
-    "ShenSeanChen/launch-agent-skills": {
-      "status": "analysed",
-      "approxTokens": 452,
-      "stalePathError": false,
-      "staleScript": false
-    },
-    "Siigari/claude-heartbeat": {
-      "status": "analysed",
-      "approxTokens": 162,
-      "stalePathError": false,
-      "staleScript": false
-    },
-    "simplifyingai/ui.simplifyingai.com": {
-      "status": "analysed",
-      "approxTokens": 992,
-      "stalePathError": false,
-      "staleScript": false
-    },
-    "stytchauth/stytch-react-example": {
-      "status": "analysed",
-      "approxTokens": 0,
-      "stalePathError": false,
-      "staleScript": false
-    },
-    "sugarforever/01coder-agent-skills": {
-      "status": "analysed",
-      "approxTokens": 965,
-      "stalePathError": true,
-      "staleScript": false
-    },
-    "Synthefy/synthefy-nori": {
-      "status": "analysed",
-      "approxTokens": 4081,
-      "stalePathError": true,
-      "staleScript": false
-    },
-    "teru01/swimmer": {
-      "status": "analysed",
-      "approxTokens": 266,
-      "stalePathError": false,
-      "staleScript": false
-    },
-    "TheLonelyDevil9/discord-pals": {
-      "status": "analysed",
-      "approxTokens": 1759,
-      "stalePathError": true,
-      "staleScript": false
-    },
-    "timinar/PolarBERT": {
-      "status": "analysed",
-      "approxTokens": 75,
-      "stalePathError": false,
-      "staleScript": false
-    },
-    "toolprint/awesome-mcp-personas": {
-      "status": "analysed",
-      "approxTokens": 8267,
-      "stalePathError": true,
-      "staleScript": false
-    },
-    "travisg/emu": {
-      "status": "analysed",
-      "approxTokens": 11501,
-      "stalePathError": true,
-      "staleScript": false
-    },
-    "tryopendata/skills": {
-      "status": "analysed",
-      "approxTokens": 1343,
-      "stalePathError": true,
-      "staleScript": false
-    },
-    "trysurface/surface-aeo-geo-engine": {
-      "status": "analysed",
-      "approxTokens": 577,
-      "stalePathError": false,
-      "staleScript": false
-    },
-    "vagkaratzas/nf-core-module-dev": {
-      "status": "analysed",
-      "approxTokens": 1627,
-      "stalePathError": true,
-      "staleScript": false
-    },
-    "VAMFI/claude-user-memory": {
-      "status": "analysed",
-      "approxTokens": 55249,
-      "stalePathError": true,
-      "staleScript": true
-    },
-    "Vertexvis/vertex-dev-dashboard": {
-      "status": "analysed",
-      "approxTokens": 482,
-      "stalePathError": false,
-      "staleScript": false
-    },
-    "vichannnnn/holy-grail": {
-      "status": "analysed",
-      "approxTokens": 1427,
-      "stalePathError": true,
-      "staleScript": false
-    },
-    "williamsharkey/shiro": {
-      "status": "analysed",
-      "approxTokens": 1346,
-      "stalePathError": true,
-      "staleScript": true
-    },
-    "workersio/skills": {
-      "status": "analysed",
-      "approxTokens": 1311,
-      "stalePathError": true,
-      "staleScript": false
-    },
-    "workleap/wl-extensions-configuration-secrets": {
-      "status": "analysed",
-      "approxTokens": 1279,
-      "stalePathError": false,
-      "staleScript": false
-    },
-    "workos/aie-europe-skills-at-scale": {
-      "status": "analysed",
-      "approxTokens": 1522,
-      "stalePathError": true,
-      "staleScript": true
-    },
-    "wyattowalsh/agents": {
-      "status": "analysed",
-      "approxTokens": 37606,
-      "stalePathError": true,
-      "staleScript": true
-    },
-    "yazelin/jaba-ai": {
-      "status": "analysed",
-      "approxTokens": 4668,
-      "stalePathError": true,
-      "staleScript": false
-    },
-    "zio/zionomicon": {
-      "status": "analysed",
-      "approxTokens": 86,
-      "stalePathError": false,
-      "staleScript": false
+      "staleScript": true,
+      "anyError": true
     }
   },
   "secretLeaks": {
-    "repositories": 0,
-    "findings": 0
+    "repositories": 1,
+    "findings": 1
   },
   "ruleTotals": {
     "AL001": {
       "rule": "stale-path",
-      "findings": 1179
+      "findings": 4308
     },
     "AL002": {
       "rule": "stale-script",
-      "findings": 53
+      "findings": 1225
     },
     "AL003": {
       "rule": "broken-import",
-      "findings": 3
+      "findings": 94
+    },
+    "AL004": {
+      "rule": "secret-leak",
+      "findings": 1
     },
     "AL005": {
       "rule": "token-budget",
-      "findings": 38
+      "findings": 108
     },
     "AL006": {
       "rule": "dead-link",
-      "findings": 14
+      "findings": 122
     },
     "AL007": {
       "rule": "duplicate-rule",
-      "findings": 83
+      "findings": 1019
     },
     "AL008": {
       "rule": "contradiction",
-      "findings": 136
+      "findings": 689
     },
     "AL009": {
       "rule": "vague-rule",
-      "findings": 50
+      "findings": 89
     },
     "AL010": {
       "rule": "missing-essentials",
-      "findings": 54
+      "findings": 22
     },
     "AL011": {
       "rule": "frontmatter",
-      "findings": 36
+      "findings": 144
+    },
+    "AL012": {
+      "rule": "nested-override",
+      "findings": 24
     },
     "AL013": {
       "rule": "huge-code-block",
-      "findings": 39
+      "findings": 308
     },
     "AL014": {
       "rule": "todo-marker",
-      "findings": 31
+      "findings": 65
     },
     "AL015": {
       "rule": "absolute-user-path",
-      "findings": 8
+      "findings": 14
     }
   },
   "summary": {
     "repositoriesAnalysed": 100,
     "repositoriesFailed": 0,
-    "stalePathErrorRepositories": 77,
-    "stalePathErrorPercent": 77,
-    "staleScriptRepositories": 15,
-    "staleScriptPercent": 15,
-    "secretLeakRepositories": 0,
-    "secretLeakPercent": 0,
-    "medianApproxTokens": 1902,
+    "repositoriesWithAnyError": 73,
+    "anyErrorPercent": 73,
+    "repositoriesWithStalePathErrors": 66,
+    "stalePathErrorPercent": 66,
+    "repositoriesWithStaleScriptErrors": 38,
+    "staleScriptErrorPercent": 38,
+    "secretLeakRepositories": 1,
+    "secretLeakPercent": 1,
+    "medianApproxTokens": 7323,
     "topRuleCodes": [
       {
         "code": "AL001",
         "rule": "stale-path",
-        "findings": 1179
-      },
-      {
-        "code": "AL008",
-        "rule": "contradiction",
-        "findings": 136
-      },
-      {
-        "code": "AL007",
-        "rule": "duplicate-rule",
-        "findings": 83
-      },
-      {
-        "code": "AL010",
-        "rule": "missing-essentials",
-        "findings": 54
+        "findings": 4308
       },
       {
         "code": "AL002",
         "rule": "stale-script",
-        "findings": 53
+        "findings": 1225
       },
       {
-        "code": "AL009",
-        "rule": "vague-rule",
-        "findings": 50
+        "code": "AL007",
+        "rule": "duplicate-rule",
+        "findings": 1019
+      },
+      {
+        "code": "AL008",
+        "rule": "contradiction",
+        "findings": 689
       },
       {
         "code": "AL013",
         "rule": "huge-code-block",
-        "findings": 39
-      },
-      {
-        "code": "AL005",
-        "rule": "token-budget",
-        "findings": 38
+        "findings": 308
       },
       {
         "code": "AL011",
         "rule": "frontmatter",
-        "findings": 36
+        "findings": 144
       },
       {
-        "code": "AL014",
-        "rule": "todo-marker",
-        "findings": 31
+        "code": "AL006",
+        "rule": "dead-link",
+        "findings": 122
+      },
+      {
+        "code": "AL005",
+        "rule": "token-budget",
+        "findings": 108
+      },
+      {
+        "code": "AL003",
+        "rule": "broken-import",
+        "findings": 94
+      },
+      {
+        "code": "AL009",
+        "rule": "vague-rule",
+        "findings": 89
       }
     ]
   }
