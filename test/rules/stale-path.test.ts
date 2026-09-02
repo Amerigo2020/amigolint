@@ -23,6 +23,10 @@ const precisionRoundFourFixtureDir = path.join(
   fixtureDir,
   'precision-round-four',
 );
+const precisionRoundFiveFixtureDir = path.join(
+  fixtureDir,
+  'precision-round-five',
+);
 const temporaryDirectories: string[] = [];
 
 afterEach(async () => {
@@ -350,6 +354,33 @@ describe('AL001 stale-path', () => {
           severity,
           message,
           ...(suggestion === undefined ? {} : { suggestion }),
+        })),
+    ).toEqual(expected);
+  });
+
+  it('distinguishes property wildcards, scoped packages, and bare alias prefixes from paths', async () => {
+    const root = path.join(precisionRoundFiveFixtureDir, 'repo');
+    vi.stubEnv('HOME', path.join(root, 'missing-home'));
+    const docPath = '.github/copilot-instructions.md';
+    const raw = await readFile(path.join(root, docPath), 'utf8');
+    const expected = JSON.parse(
+      await readFile(
+        path.join(precisionRoundFiveFixtureDir, 'expected.json'),
+        'utf8',
+      ),
+    ) as Array<Record<string, unknown>>;
+    const doc = parseDoc(docPath, raw);
+    const repo = await buildRepoIndex(root);
+
+    expect(
+      stalePath
+        .check({ doc, allDocs: [doc], repo, options: {} })
+        .map(({ file, line, col, severity, message }) => ({
+          file,
+          line,
+          col,
+          severity,
+          message,
         })),
     ).toEqual(expected);
   });

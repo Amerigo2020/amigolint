@@ -22,6 +22,8 @@ const scopedPackagePrefixPattern = /^(@[\w.-]+)\//;
 const exactScopedPackageImportPattern = /^[\w-]+\/[\w.-]+$/;
 const typeScriptPathAliasPattern = /^[@~]\/.+/;
 const extensionlessSegmentPattern = /^[a-z0-9-]+$/i;
+const identifierLikeSegmentPattern = /^[A-Za-z_$][\w$]*$/;
+const bareAliasPrefixes = new Set(['@/', '~/', './', '../']);
 const windowsDrivePathPattern = /^[A-Za-z]:[\\/]/;
 const commonSourceRootPattern =
   /^(?:src|apps|packages|docs|test|tests|scripts|lib)\//;
@@ -89,6 +91,7 @@ const stalePath = {
       if (
         text === '' ||
         seen.has(key) ||
+        isScopedPackageReference(text, context.repo) ||
         !isCandidate(candidate, context.repo)
       ) {
         continue;
@@ -401,6 +404,12 @@ function isPathLike(candidate: string): boolean {
 }
 
 function isCandidate(candidate: Candidate, repo: RepoIndex): boolean {
+  if (
+    isBareAliasPrefix(candidate.text) ||
+    isPropertyPathWildcard(candidate.text)
+  ) {
+    return false;
+  }
   if (!isPathLike(candidate.text)) {
     return false;
   }
@@ -408,7 +417,6 @@ function isCandidate(candidate: Candidate, repo: RepoIndex): boolean {
     isBareExtensionMention(candidate.text) ||
     isCssArbitraryValue(candidate.text) ||
     emptyBracketPattern.test(candidate.text) ||
-    isScopedPackageReference(candidate.text, repo) ||
     (isTypeScriptPathAlias(candidate.text) &&
       repoDefinesTypeScriptAliases(repo)) ||
     hasNumericPathSegment(candidate.text) ||
@@ -422,6 +430,44 @@ function isCandidate(candidate: Candidate, repo: RepoIndex): boolean {
     return true;
   }
   return isProseCandidate(candidate.text, repo);
+}
+
+function isBareAliasPrefix(candidate: string): boolean {
+  return bareAliasPrefixes.has(candidate);
+}
+
+function isPropertyPathWildcard(candidate: string): boolean {
+  if (
+    candidate.includes('/') ||
+    knownExtension.test(candidate) ||
+    (!candidate.includes('.*') && !candidate.includes('*.'))
+  ) {
+    return false;
+  }
+
+  for (const [index, character] of [...candidate].entries()) {
+    if (
+      character === '*' &&
+      candidate[index - 1] !== '.' &&
+      candidate[index + 1] !== '.'
+    ) {
+      return false;
+    }
+  }
+
+  const segments = candidate.split('.');
+  if (segments.some((segment) => segment === '')) {
+    return false;
+  }
+  const remainingSegments = segments
+    .map((segment) => segment.replaceAll('*', ''))
+    .filter((segment) => segment !== '');
+  return (
+    remainingSegments.length > 0 &&
+    remainingSegments.every((segment) =>
+      identifierLikeSegmentPattern.test(segment),
+    )
+  );
 }
 
 function isBareExtensionMention(candidate: string): boolean {

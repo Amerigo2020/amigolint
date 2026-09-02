@@ -1,0 +1,37 @@
+[
+  {
+    "file": ".github/copilot-instructions.md",
+    "line": 4,
+    "col": 14,
+    "severity": "error",
+    "message": "`*.json` glob matches no files"
+  },
+  {
+    "file": ".github/copilot-instructions.md",
+    "line": 4,
+    "col": 24,
+    "severity": "error",
+    "message": "`*.test.ts` glob matches no files"
+  },
+  {
+    "file": ".github/copilot-instructions.md",
+    "line": 4,
+    "col": 37,
+    "severity": "error",
+    "message": "`*.showcase.js` glob matches no files"
+  },
+  {
+    "file": ".github/copilot-instructions.md",
+    "line": 7,
+    "col": 30,
+    "severity": "error",
+    "message": "`@workspace/missing/*` glob matches no files"
+  },
+  {
+    "file": ".github/copilot-instructions.md",
+    "line": 7,
+    "col": 54,
+    "severity": "error",
+    "message": "`@workspace/missing/path` does not exist"
+  }
+]

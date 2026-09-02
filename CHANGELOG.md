@@ -11,7 +11,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Improved `stale-path` precision for generated-directory references,
   placeholder syntax, depth-independent globs, extensionless relative paths,
-  and misplaced single-segment directories
+  misplaced single-segment directories, property-path wildcards, scoped package
+  tokens, and bare alias prefixes
 - Refined path resolution, workspace command parsing, binary detection, shell
   comments, and generic credential assignment matching from the 100-repository
   precision study

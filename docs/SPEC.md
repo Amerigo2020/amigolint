@@ -118,7 +118,10 @@ Exclusions (precision-first):
 - angle-bracket or Mustache placeholders, tokens containing an ellipsis (`...` or `…`), and brace groups without a comma (including `{...}`); comma groups such as `{a,b}` remain globs
 - tokens containing single or double quotes, including quoted bracket access such as `metadata.annotations['name']`
 - CSS arbitrary values, empty bracket syntax, numeric path segments, and inline extensionless slash phrases whose segments are plain `^[a-z0-9-]+$` words (case-insensitive), unless explicitly relative or rooted at an indexed top-level entry
-- npm dependency subpaths, package-shaped scoped references or scoped globs whose scope is not an indexed directory, and `@/` or `~/` aliases when a repository tsconfig defines TypeScript aliases
+- slash-free wildcard property paths containing `.*` or `*.` when every non-wildcard dot-separated segment is identifier-like and the token has no known file extension; extension-bearing patterns such as `*.json`, `*.test.ts`, and `*.showcase.js` remain globs
+- scoped package tokens (`@scope/...`), including glob forms, unless a directory literally named for the scope exists in the repository
+- bare alias prefixes `@/`, `~/`, `./`, and `../` with no path after the prefix
+- npm dependency subpaths and `@/` or `~/` aliases when a repository tsconfig defines TypeScript aliases
 - tokens containing an index-excluded directory segment: `node_modules`, `vendor`, `dist`, `build`, `out`, `target`, `coverage`, `.next`, `.turbo`, `.cache`, `__pycache__`, `.venv`, or `venv`
 - paths ignored by `stalePath.ignore`, bare inline filenames found by basename elsewhere in the repository, or paths resolving from the document directory, repository root, `$HOME` for `~/`, or (for `SKILL.md`) a parent of the skill directory
 
