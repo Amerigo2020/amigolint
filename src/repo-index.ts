@@ -2,12 +2,10 @@ import { readdir, readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { glob } from 'tinyglobby';
 import { parse as parseYaml } from 'yaml';
-
-const INDEX_IGNORES = [
-  '**/.git/**',
-  '**/node_modules/**',
-  '**/.claude/worktrees/**',
-] as const;
+import {
+  isRepositoryIgnoredPath,
+  REPOSITORY_IGNORE_GLOBS,
+} from './path-ignore.js';
 
 const MAKEFILE_NAMES = new Set(['Makefile', 'makefile', 'GNUmakefile']);
 const JUSTFILE_NAMES = new Set(['justfile', 'Justfile', '.justfile']);
@@ -85,20 +83,29 @@ async function buildUncachedRepoIndex(root: string): Promise<RepoIndex> {
       cwd: root,
       dot: true,
       followSymbolicLinks: false,
-      ignore: INDEX_IGNORES,
+      ignore: REPOSITORY_IGNORE_GLOBS,
       onlyFiles: true,
     }),
     glob('**/*', {
       cwd: root,
       dot: true,
       followSymbolicLinks: false,
-      ignore: INDEX_IGNORES,
+      ignore: REPOSITORY_IGNORE_GLOBS,
       onlyDirectories: true,
     }),
   ]);
 
-  const files = new Set(filePaths.map(toPosixPath));
-  const directories = new Set(['.', ...directoryPaths.map(toPosixPath)]);
+  const files = new Set(
+    filePaths
+      .map(toPosixPath)
+      .filter((entry) => !isRepositoryIgnoredPath(entry)),
+  );
+  const directories = new Set([
+    '.',
+    ...directoryPaths
+      .map(toPosixPath)
+      .filter((entry) => !isRepositoryIgnoredPath(entry)),
+  ]);
   const { packages, allPackages, declaredDependencies } = await loadPackages(
     root,
     files,
@@ -357,7 +364,7 @@ async function findWorkspacePackageJsonPaths(
     cwd: root,
     dot: true,
     followSymbolicLinks: false,
-    ignore: [...INDEX_IGNORES, ...excludePatterns],
+    ignore: [...REPOSITORY_IGNORE_GLOBS, ...excludePatterns],
     onlyFiles: true,
   });
 

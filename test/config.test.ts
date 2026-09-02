@@ -103,6 +103,24 @@ describe('configuration', () => {
     });
   });
 
+  it('loads comments without corrupting comment-like text in strings', async () => {
+    const root = await temporaryRoot();
+    await writeFile(
+      path.join(root, 'amigolint.config.json'),
+      `{
+        // Generated rule documentation
+        "include": ["https://example.com//instructions/*.md"],
+        /* A block comment keeps line numbers stable. */
+        "rules": { "vague-rule": "off" }
+      }`,
+    );
+
+    await expect(loadConfig({ cwd: root })).resolves.toMatchObject({
+      include: ['https://example.com//instructions/*.md'],
+      rules: { 'vague-rule': 'off' },
+    });
+  });
+
   it('rejects malformed configuration with a useful zod error', async () => {
     const root = await temporaryRoot();
     await writeFile(

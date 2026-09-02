@@ -2,15 +2,11 @@ import { existsSync } from 'node:fs';
 import { homedir } from 'node:os';
 import path from 'node:path';
 import { globSync } from 'tinyglobby';
+import { REPOSITORY_IGNORE_GLOBS } from '../path-ignore.js';
 import type { Doc, Span } from '../types.js';
 import { repoDefinesTypeScriptAliases } from '../typescript-alias.js';
 import type { Finding, Rule, RuleContext } from './types.js';
 
-const INDEX_IGNORES = [
-  '**/.git/**',
-  '**/node_modules/**',
-  '**/.claude/worktrees/**',
-] as const;
 const knownExtension =
   /\.(?:ts|tsx|js|mjs|cjs|json|md|mdx|yml|yaml|toml|py|go|rs|rb|sh|sql|prisma|env|css|scss|html|txt|lock|csv)$/i;
 const scopedPackagePattern = /^[\w-]+\/(?:[\w.-]+|\*)(?:\/[\w.*?-]+)*$/;
@@ -186,7 +182,7 @@ function globHasFile(pattern: string, context: RuleContext): boolean {
         dot: true,
         expandDirectories: false,
         followSymbolicLinks: false,
-        ignore: INDEX_IGNORES,
+        ignore: REPOSITORY_IGNORE_GLOBS,
         onlyFiles: true,
       }).length > 0
     );

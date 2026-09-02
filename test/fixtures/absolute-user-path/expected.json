@@ -1,0 +1,30 @@
+[
+  {
+    "file": "AGENTS.md",
+    "line": 3,
+    "col": 1,
+    "severity": "warn",
+    "message": "Machine-specific path; other contributors and CI won't have it"
+  },
+  {
+    "file": "AGENTS.md",
+    "line": 4,
+    "col": 1,
+    "severity": "warn",
+    "message": "Machine-specific path; other contributors and CI won't have it"
+  },
+  {
+    "file": "AGENTS.md",
+    "line": 5,
+    "col": 1,
+    "severity": "warn",
+    "message": "Machine-specific path; other contributors and CI won't have it"
+  },
+  {
+    "file": "AGENTS.md",
+    "line": 8,
+    "col": 1,
+    "severity": "warn",
+    "message": "Machine-specific path; other contributors and CI won't have it"
+  }
+]

@@ -1,0 +1,30 @@
+[
+  {
+    "file": "AGENTS.md",
+    "line": 3,
+    "col": 3,
+    "severity": "info",
+    "message": "Unresolved TODO marker in agent instructions"
+  },
+  {
+    "file": "AGENTS.md",
+    "line": 4,
+    "col": 3,
+    "severity": "info",
+    "message": "Unresolved FIXME marker in agent instructions"
+  },
+  {
+    "file": "AGENTS.md",
+    "line": 5,
+    "col": 23,
+    "severity": "info",
+    "message": "Unresolved TBD marker in agent instructions"
+  },
+  {
+    "file": "AGENTS.md",
+    "line": 18,
+    "col": 11,
+    "severity": "info",
+    "message": "Unresolved WIP marker in agent instructions"
+  }
+]

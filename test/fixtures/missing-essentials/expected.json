@@ -1,0 +1,8 @@
+[
+  {
+    "file": "AGENTS.md",
+    "line": 1,
+    "severity": "info",
+    "message": "No build/test command found in agent instructions"
+  }
+]

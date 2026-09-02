@@ -1,0 +1,9 @@
+[
+  {
+    "file": "AGENTS.md",
+    "line": 3,
+    "endLine": 45,
+    "severity": "warn",
+    "message": "Code block of 41 lines; link to the file instead of inlining it"
+  }
+]
