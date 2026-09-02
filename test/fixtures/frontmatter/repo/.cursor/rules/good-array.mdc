@@ -1,0 +1,7 @@
+---
+alwaysApply: false
+globs:
+  - "src/**/*.ts"
+  - "test/**/*.ts"
+---
+# Array globs

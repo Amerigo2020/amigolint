@@ -1,0 +1,20 @@
+[
+  {
+    "file": "CLAUDE.md",
+    "line": 3,
+    "severity": "warn",
+    "message": "Possible contradiction: conflicts with `AGENTS.md:6`"
+  },
+  {
+    "file": "CLAUDE.md",
+    "line": 4,
+    "severity": "warn",
+    "message": "Possible contradiction: conflicts with `AGENTS.md:7`"
+  },
+  {
+    "file": "CLAUDE.md",
+    "line": 5,
+    "severity": "warn",
+    "message": "Possible contradiction: conflicts with `AGENTS.md:8`"
+  }
+]

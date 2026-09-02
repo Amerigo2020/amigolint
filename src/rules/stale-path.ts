@@ -2,19 +2,24 @@ import { existsSync } from 'node:fs';
 import path from 'node:path';
 import type { RepoIndex } from '../repo-index.js';
 import type { Doc, Span } from '../types.js';
+import { repoDefinesTypeScriptAliases } from '../typescript-alias.js';
 import type { Finding, Rule, RuleContext } from './types.js';
 
 const knownExtension =
   /\.(?:ts|tsx|js|mjs|cjs|json|md|mdx|yml|yaml|toml|py|go|rs|rb|sh|sql|prisma|env|css|scss|html|txt|lock|csv)$/i;
-const proseCandidatePattern = /[\w.@~/:-]+/g;
+const proseCandidatePattern = /[\w.@~/*?{},[\]:-]+/g;
 const globCharacterPattern = /[*?{[]/;
 const versionPattern = /^v?\d+(?:\.\d+){1,}(?:[-+][\w.-]+)?$/;
 const domainPattern =
   /^(?:[\w-]+\.)+(?:com|org|net|io|dev|app|co|de|edu|gov|ai|me|cloud|xyz)(?::\d+)?(?:[/?#]|$)/i;
 const propertyAccessPattern =
   /^(?:request|response|req|res|process|console|module|exports|import\.meta)(?:\.[A-Za-z_$][\w$]*)+$/;
-const scopedPackagePattern = /^@[\w-]+\/[\w.-]+$/;
 const cssArbitraryValuePattern = /\[[\w.%-]+\]/;
+const emptyBracketPattern = /\[\]/;
+const bareExtensionPattern = /^\.[A-Za-z0-9]+$/;
+const scopedPackagePrefixPattern = /^(@[\w.-]+)\//;
+const exactScopedPackageImportPattern = /^[\w-]+\/[\w.-]+$/;
+const typeScriptPathAliasPattern = /^[@~]\/.+/;
 const extensionlessSegmentPattern = /^[a-z0-9-]+$/;
 const windowsDrivePathPattern = /^[A-Za-z]:[\\/]/;
 const commonSourceRootPattern =
@@ -32,6 +37,7 @@ interface SuggestionIndex {
 }
 
 const suggestionIndexes = new WeakMap<RepoIndex, SuggestionIndex>();
+const directoryNameIndexes = new WeakMap<RepoIndex, Set<string>>();
 
 interface Candidate {
   text: string;
@@ -40,7 +46,7 @@ interface Candidate {
   source: 'inline' | 'import' | 'prose';
 }
 
-const stalePath: Rule = {
+const stalePath = {
   id: 'stale-path',
   code: 'AL001',
   defaultSeverity: 'error',
@@ -51,7 +57,10 @@ const stalePath: Rule = {
     const ignoredPatterns = readIgnorePatterns(context.options);
 
     for (const rawCandidate of collectCandidates(context.doc)) {
-      if (containsPlaceholder(rawCandidate.text)) {
+      if (
+        containsPlaceholder(rawCandidate.text) ||
+        containsNonPathSyntax(rawCandidate.text)
+      ) {
         continue;
       }
       const candidate = normalizeCandidate(rawCandidate);
@@ -77,6 +86,8 @@ const stalePath: Rule = {
               candidate,
               context.doc.path,
               `${quote(text)} glob matches no files`,
+              undefined,
+              isSlashlessExtensionlessGlob(text) ? 'info' : undefined,
             ),
           );
         }
@@ -124,14 +135,14 @@ const stalePath: Rule = {
         left.line - right.line || (left.col ?? 0) - (right.col ?? 0),
     );
   },
-};
+} satisfies Rule;
 
 export default stalePath;
 
 function collectCandidates(doc: Doc): Candidate[] {
   const candidates: Candidate[] = [
     ...doc.inlineCode.map((span) => fromSpan(span, 'inline')),
-    ...doc.imports.map((span) => fromSpan(span, 'import')),
+    ...doc.imports.map(fromImportSpan),
   ];
 
   const occupiedByLine = new Map<
@@ -155,6 +166,13 @@ function collectCandidates(doc: Doc): Candidate[] {
       if (match.index === undefined) {
         continue;
       }
+      if (
+        containsNonPathSyntax(
+          whitespaceDelimitedToken(line.text, match.index, match[0].length),
+        )
+      ) {
+        continue;
+      }
       candidates.push({
         text: match[0],
         line: line.n,
@@ -167,8 +185,38 @@ function collectCandidates(doc: Doc): Candidate[] {
   return candidates;
 }
 
+function whitespaceDelimitedToken(
+  input: string,
+  start: number,
+  length: number,
+): string {
+  let tokenStart = start;
+  let tokenEnd = start + length;
+  while (tokenStart > 0 && !/\s/.test(input[tokenStart - 1] ?? '')) {
+    tokenStart -= 1;
+  }
+  while (tokenEnd < input.length && !/\s/.test(input[tokenEnd] ?? '')) {
+    tokenEnd += 1;
+  }
+  return input.slice(tokenStart, tokenEnd);
+}
+
 function fromSpan(span: Span, source: Candidate['source']): Candidate {
   return { text: span.text, line: span.line, col: span.col, source };
+}
+
+function fromImportSpan(span: Span): Candidate {
+  const restoreMarker =
+    span.text.startsWith('/') ||
+    globCharacterPattern.test(span.text) ||
+    (exactScopedPackageImportPattern.test(span.text) &&
+      path.posix.extname(span.text) === '');
+  return {
+    text: restoreMarker ? `@${span.text}` : span.text,
+    line: span.line,
+    col: span.col - (restoreMarker ? 1 : 0),
+    source: 'import',
+  };
 }
 
 function maskNonProse(
@@ -193,7 +241,7 @@ function maskNonProse(
     /`+[^`]*`+/g,
     /!?\[[^\]]*\]\([^)]*\)/g,
     /(?:https?:\/\/|ftp:\/\/|www\.)[^\s<>"']+/gi,
-    /(^|\s)@[\w.~/-]+/g,
+    /(^|\s)@[^\s`<>"'()]+/g,
     /(?:^|\b(?:command|run|execute)\s*:\s*|\b(?:run|execute)\s+|\$\s*)(?:node|npx|tsx?|python\d*|ruby|bash|sh|zsh|deno)\s+[^\n]+/gi,
   ]) {
     for (const match of input.matchAll(pattern)) {
@@ -257,7 +305,12 @@ function isCandidate(candidate: Candidate, repo: RepoIndex): boolean {
     return false;
   }
   if (
+    isBareExtensionMention(candidate.text) ||
     isCssArbitraryValue(candidate.text) ||
+    emptyBracketPattern.test(candidate.text) ||
+    isScopedPackageReference(candidate.text, repo) ||
+    (isTypeScriptPathAlias(candidate.text) &&
+      repoDefinesTypeScriptAliases(repo)) ||
     hasNumericPathSegment(candidate.text) ||
     isDependencySubpath(candidate.text, repo) ||
     (candidate.source === 'inline' &&
@@ -269,6 +322,10 @@ function isCandidate(candidate: Candidate, repo: RepoIndex): boolean {
     return true;
   }
   return isProseCandidate(candidate.text, repo);
+}
+
+function isBareExtensionMention(candidate: string): boolean {
+  return bareExtensionPattern.test(candidate) && knownExtension.test(candidate);
 }
 
 function isCssArbitraryValue(candidate: string): boolean {
@@ -318,6 +375,27 @@ function isDependencySubpath(candidate: string, repo: RepoIndex): boolean {
   return dependencyName !== undefined && repo.dependencies.has(dependencyName);
 }
 
+function isScopedPackageReference(candidate: string, repo: RepoIndex): boolean {
+  const scope = scopedPackagePrefixPattern.exec(candidate)?.[1];
+  return scope !== undefined && !getDirectoryNames(repo).has(scope);
+}
+
+function getDirectoryNames(repo: RepoIndex): Set<string> {
+  const cached = directoryNameIndexes.get(repo);
+  if (cached !== undefined) {
+    return cached;
+  }
+  const names = new Set(
+    [...repo.directories].map((directory) => path.posix.basename(directory)),
+  );
+  directoryNameIndexes.set(repo, names);
+  return names;
+}
+
+function isTypeScriptPathAlias(candidate: string): boolean {
+  return typeScriptPathAliasPattern.test(candidate);
+}
+
 function containsPlaceholder(candidate: string): boolean {
   return (
     candidate.includes('<') ||
@@ -325,6 +403,10 @@ function containsPlaceholder(candidate: string): boolean {
     candidate.includes('{{') ||
     candidate.includes('}}')
   );
+}
+
+function containsNonPathSyntax(candidate: string): boolean {
+  return candidate.includes('"') || candidate.includes('=');
 }
 
 function isProseCandidate(candidate: string, repo: RepoIndex): boolean {
@@ -355,8 +437,7 @@ function shouldExclude(candidate: string): boolean {
     candidate.includes('(') ||
     versionPattern.test(candidate) ||
     domainPattern.test(candidate) ||
-    propertyAccessPattern.test(candidate) ||
-    scopedPackagePattern.test(candidate)
+    propertyAccessPattern.test(candidate)
   ) {
     return true;
   }
@@ -365,6 +446,14 @@ function shouldExclude(candidate: string): boolean {
     candidate.startsWith('/') &&
     !globCharacterPattern.test(candidate) &&
     !knownExtension.test(candidate.replace(globCharacterPattern, ''))
+  );
+}
+
+function isSlashlessExtensionlessGlob(candidate: string): boolean {
+  return (
+    globCharacterPattern.test(candidate) &&
+    !candidate.includes('/') &&
+    path.posix.extname(candidate) === ''
   );
 }
 

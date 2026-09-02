@@ -14,19 +14,20 @@ export interface LintConfig {
   checkUrls: boolean;
 }
 
-const severitySchema = z.enum(['error', 'warn', 'info', 'off']);
-const ruleConfigurationSchema = z.union([
+export const severitySchema = z.enum(['error', 'warn', 'info', 'off']);
+export const ruleConfigurationSchema = z.union([
   severitySchema,
   z.tuple([severitySchema, z.record(z.string(), z.unknown())]),
 ]);
-const configSchema = z
+export const configSchema = z
   .object({
+    $schema: z.string().optional(),
     include: z.array(z.string()).optional(),
     exclude: z.array(z.string()).optional(),
     rules: z.record(z.string(), ruleConfigurationSchema).optional(),
     checkUrls: z.boolean().optional(),
   })
-  .passthrough();
+  .strict();
 
 export const defaultConfig: LintConfig = {
   include: [],
@@ -42,35 +43,83 @@ export class ConfigError extends Error {
 export async function loadConfig(
   options: { cwd?: string; path?: string } = {},
 ): Promise<LintConfig> {
-  if (options.path === undefined) {
-    return cloneDefaultConfig();
+  const cwd = path.resolve(options.cwd ?? process.cwd());
+  if (options.path !== undefined) {
+    return parseConfigFile(path.resolve(cwd, options.path), options.path, true);
   }
 
-  const cwd = path.resolve(options.cwd ?? process.cwd());
-  const configPath = path.resolve(cwd, options.path);
+  for (const name of ['amigolint.config.json', '.amigolintrc.json']) {
+    const loaded = await parseConfigFile(path.join(cwd, name), name, false);
+    if (loaded !== undefined) {
+      return loaded;
+    }
+  }
+
+  const packagePath = path.join(cwd, 'package.json');
+  const packageJson = await readJsonFile(packagePath, 'package.json', false);
+  if (packageJson !== undefined && isRecord(packageJson)) {
+    if (packageJson.amigolint === undefined) {
+      return cloneDefaultConfig();
+    }
+    return validateConfig(packageJson.amigolint, 'package.json#amigolint');
+  }
+
+  return cloneDefaultConfig();
+}
+
+async function parseConfigFile(
+  configPath: string,
+  displayPath: string,
+  required: true,
+): Promise<LintConfig>;
+async function parseConfigFile(
+  configPath: string,
+  displayPath: string,
+  required: false,
+): Promise<LintConfig | undefined>;
+async function parseConfigFile(
+  configPath: string,
+  displayPath: string,
+  required: boolean,
+): Promise<LintConfig | undefined> {
+  const parsedJson = await readJsonFile(configPath, displayPath, required);
+  return parsedJson === undefined
+    ? undefined
+    : validateConfig(parsedJson, displayPath);
+}
+
+async function readJsonFile(
+  configPath: string,
+  displayPath: string,
+  required: boolean,
+): Promise<unknown | undefined> {
   let source: string;
   try {
     source = await readFile(configPath, 'utf8');
   } catch (error) {
+    if (!required && isMissingFileError(error)) {
+      return undefined;
+    }
     throw new ConfigError(
-      `Could not read config ${quotePath(options.path)}: ${errorMessage(error)}`,
+      `Could not read config ${quotePath(displayPath)}: ${errorMessage(error)}`,
     );
   }
 
-  let parsedJson: unknown;
   try {
-    parsedJson = JSON.parse(source);
+    return JSON.parse(source) as unknown;
   } catch (error) {
     throw new ConfigError(
-      `Could not parse config ${quotePath(options.path)}: ${errorMessage(error)}`,
+      `Could not parse config ${quotePath(displayPath)}: ${errorMessage(error)}`,
     );
   }
+}
 
-  const result = configSchema.safeParse(parsedJson);
+function validateConfig(value: unknown, displayPath: string): LintConfig {
+  const result = configSchema.safeParse(value);
   if (!result.success) {
     const issue = result.error.issues[0];
     throw new ConfigError(
-      `Invalid config ${quotePath(options.path)}${issue ? `: ${issue.message}` : ''}`,
+      `Invalid config ${quotePath(displayPath)}${issue ? `: ${issue.message}` : ''}`,
     );
   }
 
@@ -86,6 +135,48 @@ export async function loadConfig(
       ? {}
       : { checkUrls: result.data.checkUrls }),
   });
+}
+
+export function generateConfigJsonSchema(): Record<string, unknown> {
+  const generated = z.toJSONSchema(configSchema, {
+    target: 'draft-2020-12',
+    unrepresentable: 'any',
+  });
+  const tupleBranch = findRuleTupleBranch(generated);
+  if (tupleBranch !== undefined) {
+    tupleBranch.minItems = 2;
+    tupleBranch.maxItems = 2;
+    tupleBranch.items = false;
+  }
+  return {
+    ...generated,
+    $schema: 'https://json-schema.org/draft/2020-12/schema',
+    $id: 'https://raw.githubusercontent.com/Amerigo2020/amigolint/main/schema.json',
+    title: 'amigolint configuration',
+    description: 'Configuration for amigolint instruction-file linting',
+  };
+}
+
+function findRuleTupleBranch(
+  schema: Record<string, unknown>,
+): Record<string, unknown> | undefined {
+  const properties = isRecord(schema.properties)
+    ? schema.properties
+    : undefined;
+  const rules =
+    properties && isRecord(properties.rules) ? properties.rules : undefined;
+  const additionalProperties =
+    rules && isRecord(rules.additionalProperties)
+      ? rules.additionalProperties
+      : undefined;
+  const alternatives = additionalProperties?.anyOf;
+  if (!Array.isArray(alternatives)) {
+    return undefined;
+  }
+  return alternatives.find(
+    (alternative): alternative is Record<string, unknown> =>
+      isRecord(alternative) && alternative.type === 'array',
+  );
 }
 
 export function mergeConfig(config: Partial<LintConfig> = {}): LintConfig {
@@ -121,4 +212,16 @@ function quotePath(value: string): string {
 
 function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
+}
+
+function isMissingFileError(error: unknown): boolean {
+  return (
+    error instanceof Error &&
+    'code' in error &&
+    (error as NodeJS.ErrnoException).code === 'ENOENT'
+  );
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }

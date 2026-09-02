@@ -1,0 +1,20 @@
+[
+  {
+    "file": "AGENTS.md",
+    "line": 3,
+    "severity": "warn",
+    "message": "Local link `docs/missing.md` does not exist"
+  },
+  {
+    "file": "AGENTS.md",
+    "line": 4,
+    "severity": "warn",
+    "message": "Local link `assets/missing.png` does not exist"
+  },
+  {
+    "file": "AGENTS.md",
+    "line": 5,
+    "severity": "warn",
+    "message": "Local link `missing.json?raw=1#top` does not exist"
+  }
+]

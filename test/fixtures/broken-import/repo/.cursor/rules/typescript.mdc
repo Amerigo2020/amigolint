@@ -1,0 +1,10 @@
+---
+description: TypeScript source guidance
+globs:
+  - "src/**/*.ts"
+  - "src/**/*.tsx"
+  - "tests/{unit,integration}/**/*.ts"
+  - "scripts/*.sh"
+  - "README.md"
+---
+# TypeScript

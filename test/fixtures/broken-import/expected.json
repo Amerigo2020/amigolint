@@ -1,0 +1,48 @@
+{
+  "CLAUDE.md": [
+    {
+      "line": 4,
+      "col": 2,
+      "severity": "error",
+      "message": "`@docs/missing.md` import does not exist"
+    },
+    {
+      "line": 5,
+      "col": 10,
+      "severity": "error",
+      "message": "`@config/missing.yml` import does not exist"
+    },
+    {
+      "line": 6,
+      "col": 2,
+      "severity": "error",
+      "message": "`@missing.txt` import does not exist"
+    },
+    {
+      "line": 7,
+      "col": 2,
+      "severity": "error",
+      "message": "`@/path/to/file.json` import does not exist"
+    }
+  ],
+  ".cursor/rules/typescript.mdc": [
+    {
+      "line": 5,
+      "severity": "error",
+      "message": "`src/**/*.tsx` glob matches no files"
+    },
+    {
+      "line": 7,
+      "severity": "error",
+      "message": "`scripts/*.sh` glob matches no files"
+    }
+  ],
+  ".claude/skills/review/SKILL.md": [
+    {
+      "line": 2,
+      "severity": "warn",
+      "message": "Frontmatter `name` is `code-review` but the skill directory is `review`"
+    }
+  ],
+  ".agents/skills/deploy/SKILL.md": []
+}

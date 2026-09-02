@@ -1,0 +1,20 @@
+[
+  {
+    "file": "AGENTS.md",
+    "line": 9,
+    "severity": "warn",
+    "message": "This instruction duplicates `AGENTS.md:8`"
+  },
+  {
+    "file": "CLAUDE.md",
+    "line": 6,
+    "severity": "warn",
+    "message": "This instruction duplicates `AGENTS.md:6`"
+  },
+  {
+    "file": "CLAUDE.md",
+    "line": 7,
+    "severity": "warn",
+    "message": "This instruction duplicates `AGENTS.md:7`"
+  }
+]
