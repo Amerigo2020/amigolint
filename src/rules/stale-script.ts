@@ -20,6 +20,22 @@ const PACKAGE_MANAGER_OPERATIONS = new Set([
   '--version',
 ]);
 
+const BUN_OPERATIONS = new Set([
+  'x',
+  'install',
+  'add',
+  'remove',
+  'update',
+  'test',
+  'build',
+  'create',
+  'init',
+  'pm',
+]);
+
+const PLACEHOLDER_TOKEN = /[<>{}$]|\.\.\.|…/u;
+const FILE_EXTENSION = /\.[a-zA-Z0-9]+$/;
+
 const MAKE_JUST_STOPWORDS = new Set([
   'the',
   'a',
@@ -62,7 +78,7 @@ const staleScript = {
   id: 'stale-script',
   code: 'AL002',
   defaultSeverity: 'error',
-  docs: 'Reports missing package scripts and make, just, or turbo targets, including workspace-qualified commands.',
+  docs: 'Reports missing package scripts and make, just, or turbo targets, including workspace-qualified commands, while ignoring placeholders and direct file execution.',
   check(context) {
     const findings: Finding[] = [];
     const seen = new Set<string>();
@@ -162,6 +178,10 @@ function extractWorkspacePattern(
       continue;
     }
 
+    if (containsPlaceholder(rawScript)) {
+      continue;
+    }
+
     const packageName = normalizeToken(rawPackageName).value;
     const token = normalizeToken(rawScript);
     const script = packageScriptName(manager, match[2] === 'run', token.value);
@@ -193,6 +213,10 @@ function extractPackageScripts(source: CommandSource): CommandCandidate[] {
       continue;
     }
 
+    if (containsPlaceholder(rawToken)) {
+      continue;
+    }
+
     const token = normalizeToken(rawToken);
     const script = packageScriptName(manager, match[2] === 'run', token.value);
     if (!script) {
@@ -221,8 +245,16 @@ function packageScriptName(
     return undefined;
   }
 
+  if (manager === 'bun' && isFileReference(argument)) {
+    return undefined;
+  }
+
   if (explicitRun) {
     return argument;
+  }
+
+  if (manager === 'bun' && BUN_OPERATIONS.has(argument)) {
+    return undefined;
   }
 
   if (PACKAGE_MANAGER_OPERATIONS.has(argument) || argument === 'run') {
@@ -245,6 +277,9 @@ function extractNamedCommand(
   for (const match of source.text.matchAll(pattern)) {
     const rawToken = match[1];
     if (!rawToken || match.index === undefined) {
+      continue;
+    }
+    if (containsPlaceholder(rawToken)) {
       continue;
     }
     const token = normalizeToken(rawToken);
@@ -277,6 +312,9 @@ function extractTurboTasks(source: CommandSource): CommandCandidate[] {
     if (!rawToken || match.index === undefined) {
       continue;
     }
+    if (containsPlaceholder(rawToken)) {
+      continue;
+    }
     const token = normalizeToken(rawToken);
     if (token.value === '' || token.value.startsWith('-')) {
       continue;
@@ -300,6 +338,14 @@ function normalizeToken(rawToken: string): NormalizedToken {
     value: rawToken.slice(leading).replace(/["'),\]}]+$/, ''),
     leadingOffset: leading,
   };
+}
+
+function containsPlaceholder(token: string): boolean {
+  return PLACEHOLDER_TOKEN.test(token);
+}
+
+function isFileReference(argument: string): boolean {
+  return argument.includes('/') || FILE_EXTENSION.test(argument);
 }
 
 function stripUnquotedComment(command: string): string {

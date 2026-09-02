@@ -156,7 +156,10 @@ Patterns (inline code and code blocks with lang `bash|sh|zsh|shell|console|` emp
 - `turbo run <task>` → `turbo.json` tasks (pipeline or tasks key)
 
 - Scan inline code and non-comment lines of shell code blocks; strip from the first unquoted `#`, and never parse prose outside inline code
+- Skip candidate tokens containing `<`, `>`, `{`, `}`, `$`, `...`, or `…`; these are placeholders, not script or target names
+- Treat `bun <file>`, `bun run <file>`, `node <file>`, `npx tsx <file>`, and `deno run <file>` as file references when the file argument contains `/` or ends with a file extension; AL001 owns file existence checks
 - Skip `pnpm install|add|remove|dlx|exec|create|i|up|why|ls|-v|--version` and the same set for npm/yarn/bun
+- Also skip `bun x`, `bunx`, `bun update|test|build|init|pm`, and `bun --<flag>`
 - Bare `yarn <name>`, `pnpm <name>`, and `bun <name>` may invoke binaries; skip repository dependencies and names in `node_modules/.bin`
 - Skip `the`, `a`, `an`, `to`, `and`, `or`, `it`, `all`, `run`, `sure`, `use`, `do`, and `not` as make targets or just recipes
 - Resolve `package.json` from the document directory upward; workspace-only scripts are `info` with "script only exists in packages/x"

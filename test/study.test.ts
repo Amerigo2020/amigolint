@@ -52,24 +52,28 @@ describe('study aggregation', () => {
           approxTokens: 10,
           stalePathError: true,
           staleScript: false,
+          anyError: true,
         },
         'example/two': {
           status: 'analysed',
           approxTokens: 20,
           stalePathError: true,
           staleScript: true,
+          anyError: true,
         },
         'secret-owner/private-repo': {
           status: 'analysed',
           approxTokens: 30,
           stalePathError: false,
           staleScript: false,
+          anyError: true,
         },
         'example/four': {
           status: 'analysed',
           approxTokens: 100,
           stalePathError: false,
           staleScript: false,
+          anyError: false,
         },
         'example/failed': { status: 'failed', stage: 'clone' },
       },
@@ -86,10 +90,12 @@ describe('study aggregation', () => {
     expect(summary).toMatchObject({
       repositoriesAnalysed: 4,
       repositoriesFailed: 1,
-      stalePathErrorRepositories: 2,
+      repositoriesWithAnyError: 3,
+      anyErrorPercent: 75,
+      repositoriesWithStalePathErrors: 2,
       stalePathErrorPercent: 50,
-      staleScriptRepositories: 1,
-      staleScriptPercent: 25,
+      repositoriesWithStaleScriptErrors: 1,
+      staleScriptErrorPercent: 25,
       secretLeakRepositories: 1,
       secretLeakPercent: 25,
       medianApproxTokens: 25,
@@ -102,8 +108,13 @@ describe('study aggregation', () => {
 
     const markdown = renderStudyMarkdown(results);
     expect(markdown).toContain('| Repositories analysed | 4 |');
-    expect(markdown).toContain('| Stale-path errors | 50.0% (2/4) |');
-    expect(markdown).toContain('| Stale-script findings | 25.0% (1/4) |');
+    expect(markdown).toContain('| Repositories with any error | 75.0% (3/4) |');
+    expect(markdown).toContain(
+      '| Repositories with stale-path errors | 50.0% (2/4) |',
+    );
+    expect(markdown).toContain(
+      '| Repositories with stale-script errors | 25.0% (1/4) |',
+    );
     expect(markdown).toContain('| Secret-leak findings | 25.0% (1/4) |');
     expect(markdown).toContain(
       '| Median approximate tokens per repository | ≈25 |',
@@ -132,6 +143,7 @@ describe('study runner', () => {
       approxTokens: 5,
       stalePathError: false,
       staleScript: false,
+      anyError: false,
     };
     await writeFile(resultsPath, `${JSON.stringify(existing, null, 2)}\n`);
 
@@ -212,6 +224,7 @@ describe('study runner', () => {
 
     const savedRaw = await readFile(resultsPath, 'utf8');
     const saved = JSON.parse(savedRaw) as StudyResults;
+    expect(saved.schemaVersion).toBe(2);
     expect(saved.repositories['skip/me']?.status).toBe('analysed');
     expect(saved.repositories['fail/clone']).toEqual({
       status: 'failed',
@@ -222,6 +235,7 @@ describe('study runner', () => {
       approxTokens: 36,
       stalePathError: false,
       staleScript: true,
+      anyError: true,
     });
     expect(saved.secretLeaks).toEqual({ repositories: 1, findings: 2 });
     expect(saved.ruleTotals.AL004).toEqual({
@@ -230,8 +244,10 @@ describe('study runner', () => {
     });
     expect(saved.summary).toMatchObject({
       repositoriesAnalysed: 2,
+      repositoriesWithAnyError: 1,
+      anyErrorPercent: 50,
       stalePathErrorPercent: 0,
-      staleScriptPercent: 50,
+      staleScriptErrorPercent: 50,
       secretLeakPercent: 50,
       medianApproxTokens: 20.5,
     });
@@ -249,5 +265,110 @@ describe('study runner', () => {
     expect((await readdir(root)).some((file) => file.includes('.tmp-'))).toBe(
       false,
     );
+  });
+
+  it('separates stale-rule info findings from errors reported by other rules', async () => {
+    const root = await mkdtemp(path.join(tmpdir(), 'amigolint-study-test-'));
+    temporaryDirectories.push(root);
+    const repositoryListPath = path.join(root, 'repos.txt');
+    const resultsPath = path.join(root, 'results.json');
+    const markdownPath = path.join(root, 'RESULTS.md');
+    await writeFile(repositoryListPath, 'info/only\nother/error\n', 'utf8');
+
+    const infoOnlyReport: Report = {
+      version: '0.1.0',
+      root: '/temporary/repository',
+      files: [{ path: 'AGENTS.md', agent: 'codex', approxTokens: 10 }],
+      findings: [
+        {
+          rule: 'stale-path',
+          code: 'AL001',
+          severity: 'info',
+          file: 'AGENTS.md',
+          line: 1,
+          message: '`src/example.ts` only exists elsewhere',
+        },
+        {
+          rule: 'stale-script',
+          code: 'AL002',
+          severity: 'info',
+          file: 'AGENTS.md',
+          line: 2,
+          message: '`build` only exists in `packages/example`',
+        },
+      ],
+      summary: { errors: 0, warnings: 0, infos: 2, suppressed: 0 },
+    };
+    const otherErrorReport: Report = {
+      ...infoOnlyReport,
+      findings: [
+        ...infoOnlyReport.findings,
+        {
+          rule: 'broken-import',
+          code: 'AL003',
+          severity: 'error',
+          file: 'AGENTS.md',
+          line: 3,
+          message: '`@missing/file.md` does not exist',
+        },
+      ],
+      summary: { errors: 1, warnings: 0, infos: 2, suppressed: 0 },
+    };
+    let lintCalls = 0;
+
+    const results = await runStudy({
+      repositoryListPath,
+      resultsPath,
+      markdownPath,
+      cloneRepository: async () => {},
+      lintRepository: async () => {
+        lintCalls += 1;
+        return lintCalls === 1 ? infoOnlyReport : otherErrorReport;
+      },
+      pause: async () => {},
+      now: () => new Date('2026-09-02T12:00:00.000Z'),
+      onProgress: () => {},
+    });
+
+    expect(results.repositories['info/only']).toEqual({
+      status: 'analysed',
+      approxTokens: 10,
+      stalePathError: false,
+      staleScript: false,
+      anyError: false,
+    });
+    expect(results.repositories['other/error']).toEqual({
+      status: 'analysed',
+      approxTokens: 10,
+      stalePathError: false,
+      staleScript: false,
+      anyError: true,
+    });
+    expect(results.summary).toMatchObject({
+      repositoriesWithAnyError: 1,
+      repositoriesWithStalePathErrors: 0,
+      repositoriesWithStaleScriptErrors: 0,
+    });
+  });
+
+  it('rejects schema version 1 with a clear version message', async () => {
+    const root = await mkdtemp(path.join(tmpdir(), 'amigolint-study-test-'));
+    temporaryDirectories.push(root);
+    const repositoryListPath = path.join(root, 'repos.txt');
+    const resultsPath = path.join(root, 'results.json');
+    const markdownPath = path.join(root, 'RESULTS.md');
+    await writeFile(repositoryListPath, '', 'utf8');
+    await writeFile(
+      resultsPath,
+      `${JSON.stringify({
+        ...createEmptyStudyResults('2026-09-01T00:00:00.000Z'),
+        schemaVersion: 1,
+      })}\n`,
+      'utf8',
+    );
+
+    await expect(
+      runStudy({ repositoryListPath, resultsPath, markdownPath }),
+    ).rejects.toThrow('Unsupported study results schema version 1; expected 2');
   });
 });

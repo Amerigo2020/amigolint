@@ -48,5 +48,10 @@
     "line": 55,
     "severity": "error",
     "message": "`bare-missing` script does not exist"
+  },
+  {
+    "line": 65,
+    "severity": "error",
+    "message": "`missing-bun-script` script does not exist"
   }
 ]

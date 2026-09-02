@@ -61,3 +61,5 @@ Natural-language make and just phrases:
 ```sh
 # npm run comment-line-missing
 ```
+
+Missing Bun script: `bun run missing-bun-script`

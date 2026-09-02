@@ -16,6 +16,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Refined path resolution, workspace command parsing, binary detection, shell
   comments, and generic credential assignment matching from the 100-repository
   precision study
+- Reduced `stale-script` false positives for placeholders, direct file
+  execution, and Bun built-ins, and made study repository metrics error-only
+  under schema version 2
 
 ## [0.1.0] - 2026-09-02
 

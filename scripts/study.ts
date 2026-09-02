@@ -14,7 +14,7 @@ import { lint } from '../src/index.js';
 import type { Report } from '../src/report/types.js';
 import { redactSecrets } from '../src/secrets.js';
 
-const studySchemaVersion = 1 as const;
+const studySchemaVersion = 2 as const;
 const pauseBetweenRepositoriesMs = 1_000;
 const secretLeakCode = 'AL004';
 
@@ -28,6 +28,7 @@ export interface AnalysedRepositoryResult {
   approxTokens: number;
   stalePathError: boolean;
   staleScript: boolean;
+  anyError: boolean;
 }
 
 export interface FailedRepositoryResult {
@@ -59,10 +60,12 @@ export interface StudyResults {
 export interface StudySummary {
   repositoriesAnalysed: number;
   repositoriesFailed: number;
-  stalePathErrorRepositories: number;
+  repositoriesWithAnyError: number;
+  anyErrorPercent: number | null;
+  repositoriesWithStalePathErrors: number;
   stalePathErrorPercent: number | null;
-  staleScriptRepositories: number;
-  staleScriptPercent: number | null;
+  repositoriesWithStaleScriptErrors: number;
+  staleScriptErrorPercent: number | null;
   secretLeakRepositories: number;
   secretLeakPercent: number | null;
   medianApproxTokens: number;
@@ -128,10 +131,13 @@ export function summarizeStudy(results: StudyResults): StudySummary {
     .map(({ approxTokens }) => approxTokens)
     .sort((left, right) => left - right);
 
-  const stalePathErrorRepositories = analysed.filter(
+  const repositoriesWithAnyError = analysed.filter(
+    ({ anyError }) => anyError,
+  ).length;
+  const repositoriesWithStalePathErrors = analysed.filter(
     ({ stalePathError }) => stalePathError,
   ).length;
-  const staleScriptRepositories = analysed.filter(
+  const repositoriesWithStaleScriptErrors = analysed.filter(
     ({ staleScript }) => staleScript,
   ).length;
 
@@ -140,13 +146,18 @@ export function summarizeStudy(results: StudyResults): StudySummary {
     repositoriesFailed: Object.values(results.repositories).filter(
       ({ status }) => status === 'failed',
     ).length,
-    stalePathErrorRepositories,
+    repositoriesWithAnyError,
+    anyErrorPercent: percentage(repositoriesWithAnyError, analysed.length),
+    repositoriesWithStalePathErrors,
     stalePathErrorPercent: percentage(
-      stalePathErrorRepositories,
+      repositoriesWithStalePathErrors,
       analysed.length,
     ),
-    staleScriptRepositories,
-    staleScriptPercent: percentage(staleScriptRepositories, analysed.length),
+    repositoriesWithStaleScriptErrors,
+    staleScriptErrorPercent: percentage(
+      repositoriesWithStaleScriptErrors,
+      analysed.length,
+    ),
     secretLeakRepositories: results.secretLeaks.repositories,
     secretLeakPercent: percentage(
       results.secretLeaks.repositories,
@@ -185,8 +196,9 @@ export function renderStudyMarkdown(results: StudyResults): string {
     '| --- | ---: |',
     `| Repositories analysed | ${total} |`,
     `| Repositories that failed | ${summary.repositoriesFailed} |`,
-    `| Stale-path errors | ${formatPercentage(summary.stalePathErrorRepositories, total)} |`,
-    `| Stale-script findings | ${formatPercentage(summary.staleScriptRepositories, total)} |`,
+    `| Repositories with any error | ${formatPercentage(summary.repositoriesWithAnyError, total)} |`,
+    `| Repositories with stale-path errors | ${formatPercentage(summary.repositoriesWithStalePathErrors, total)} |`,
+    `| Repositories with stale-script errors | ${formatPercentage(summary.repositoriesWithStaleScriptErrors, total)} |`,
     `| Secret-leak findings | ${formatPercentage(summary.secretLeakRepositories, total)} |`,
     `| Median approximate tokens per repository | ≈${formatNumber(summary.medianApproxTokens)} |`,
     '',
@@ -362,7 +374,10 @@ function recordReport(
     stalePathError: report.findings.some(
       ({ code, severity }) => code === 'AL001' && severity === 'error',
     ),
-    staleScript: report.findings.some(({ code }) => code === 'AL002'),
+    staleScript: report.findings.some(
+      ({ code, severity }) => code === 'AL002' && severity === 'error',
+    ),
+    anyError: report.findings.some(({ severity }) => severity === 'error'),
   };
 
   if (secretFindings.length > 0) {
@@ -393,6 +408,20 @@ async function loadStudyResults(
   }
 
   const parsed: unknown = JSON.parse(raw);
+  if (
+    isRecord(parsed) &&
+    Object.hasOwn(parsed, 'schemaVersion') &&
+    parsed.schemaVersion !== studySchemaVersion
+  ) {
+    const foundVersion =
+      typeof parsed.schemaVersion === 'number' ||
+      typeof parsed.schemaVersion === 'string'
+        ? String(parsed.schemaVersion)
+        : 'unknown';
+    throw new Error(
+      `Unsupported study results schema version ${redactSecrets(foundVersion)}; expected ${studySchemaVersion} at ${redactSecrets(resultsPath)}`,
+    );
+  }
   if (!isStudyResults(parsed)) {
     throw new Error(
       `Invalid study results at ${redactSecrets(resultsPath)}; remove or repair the file before resuming`,
@@ -472,10 +501,12 @@ function isStudySummary(value: unknown): value is StudySummary {
     isRecord(value) &&
     isNonNegativeInteger(value.repositoriesAnalysed) &&
     isNonNegativeInteger(value.repositoriesFailed) &&
-    isNonNegativeInteger(value.stalePathErrorRepositories) &&
+    isNonNegativeInteger(value.repositoriesWithAnyError) &&
+    isPercentage(value.anyErrorPercent) &&
+    isNonNegativeInteger(value.repositoriesWithStalePathErrors) &&
     isPercentage(value.stalePathErrorPercent) &&
-    isNonNegativeInteger(value.staleScriptRepositories) &&
-    isPercentage(value.staleScriptPercent) &&
+    isNonNegativeInteger(value.repositoriesWithStaleScriptErrors) &&
+    isPercentage(value.staleScriptErrorPercent) &&
     isNonNegativeInteger(value.secretLeakRepositories) &&
     isPercentage(value.secretLeakPercent) &&
     typeof value.medianApproxTokens === 'number' &&
@@ -503,7 +534,8 @@ function isRepositoryStudyResult(
     value.status === 'analysed' &&
     isNonNegativeInteger(value.approxTokens) &&
     typeof value.stalePathError === 'boolean' &&
-    typeof value.staleScript === 'boolean'
+    typeof value.staleScript === 'boolean' &&
+    typeof value.anyError === 'boolean'
   );
 }
 
@@ -562,10 +594,12 @@ function emptyStudySummary(): StudySummary {
   return {
     repositoriesAnalysed: 0,
     repositoriesFailed: 0,
-    stalePathErrorRepositories: 0,
+    repositoriesWithAnyError: 0,
+    anyErrorPercent: null,
+    repositoriesWithStalePathErrors: 0,
     stalePathErrorPercent: null,
-    staleScriptRepositories: 0,
-    staleScriptPercent: null,
+    repositoriesWithStaleScriptErrors: 0,
+    staleScriptErrorPercent: null,
     secretLeakRepositories: 0,
     secretLeakPercent: null,
     medianApproxTokens: 0,

@@ -65,7 +65,7 @@ This table is the output of `amigolint rules --format md`:
 | Code | Rule | Default | Description |
 | --- | --- | --- | --- |
 | AL001 | `stale-path` | error | Reports unresolved file, directory, and glob references, with relocation hints for paths found elsewhere. |
-| AL002 | `stale-script` | error | Reports missing package scripts and make, just, or turbo targets, including workspace-qualified commands. |
+| AL002 | `stale-script` | error | Reports missing package scripts and make, just, or turbo targets, including workspace-qualified commands, while ignoring placeholders and direct file execution. |
 | AL003 | `broken-import` | error | Reports unresolved Claude imports, unmatched Cursor globs, and mismatched skill names. |
 | AL004 | `secret-leak` | error | Reports credential-shaped assignments, provider tokens, and private key material while masking every detected value. |
 | AL005 | `token-budget` | warn | Reports instruction files and automatically loaded agent totals that exceed configured token budgets. |

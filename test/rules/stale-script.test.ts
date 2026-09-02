@@ -62,6 +62,35 @@ describe('AL002 stale-script', () => {
       expect(findings.every(({ message }) => !message.endsWith('.'))).toBe(
         true,
       );
+
+      const excludedRaw = await readFile(
+        path.join(temporaryRoot, 'no-scripts', 'AGENTS.md'),
+        'utf8',
+      );
+      const excludedDoc = parseDoc('no-scripts/AGENTS.md', excludedRaw);
+      const excludedFindings = staleScript.check({
+        doc: excludedDoc,
+        allDocs: [excludedDoc],
+        repo,
+        options: {},
+      });
+
+      expect(excludedFindings).toEqual([]);
+
+      const clinePath = '.clinerules/bun-and-node.md';
+      const clineRaw = await readFile(
+        path.join(temporaryRoot, clinePath),
+        'utf8',
+      );
+      const clineDoc = parseDoc(clinePath, clineRaw);
+      const clineFindings = staleScript.check({
+        doc: clineDoc,
+        allDocs: [clineDoc],
+        repo,
+        options: {},
+      });
+
+      expect(clineFindings).toEqual([]);
     } finally {
       await rm(temporaryRoot, { recursive: true, force: true });
     }
