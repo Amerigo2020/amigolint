@@ -1,0 +1,1 @@
+# Excluded worktree Claude instructions

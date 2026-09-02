@@ -1,0 +1,6 @@
+{
+  "name": "fixture-app",
+  "scripts": {
+    "workspace-check": "node check.mjs"
+  }
+}

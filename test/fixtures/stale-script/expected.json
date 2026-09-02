@@ -1,0 +1,27 @@
+[
+  {
+    "line": 3,
+    "severity": "error",
+    "message": "`missing-script` script does not exist"
+  },
+  {
+    "line": 7,
+    "severity": "error",
+    "message": "`missing-target` Makefile target does not exist"
+  },
+  {
+    "line": 9,
+    "severity": "error",
+    "message": "`missing-task` turbo task does not exist"
+  },
+  {
+    "line": 10,
+    "severity": "info",
+    "message": "`workspace-check` script only exists in `packages/app`"
+  },
+  {
+    "line": 14,
+    "severity": "error",
+    "message": "`block-missing` script does not exist"
+  }
+]

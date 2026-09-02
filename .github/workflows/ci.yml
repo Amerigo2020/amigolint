@@ -71,5 +71,7 @@ jobs:
             npm init --yes >/dev/null
             npm install "$pack_dir"/amigolint-*.tgz
             test -x node_modules/.bin/amigolint
-            npx amigolint --version
+            package_version="$(node -p "require('./node_modules/amigolint/package.json').version")"
+            test "$(npx amigolint --version)" = "$package_version"
+            node --input-type=module -e "import('amigolint').then(({ lint }) => { if (typeof lint !== 'function') process.exit(1) })"
           )

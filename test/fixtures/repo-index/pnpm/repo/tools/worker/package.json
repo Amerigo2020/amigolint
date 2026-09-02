@@ -1,0 +1,6 @@
+{
+  "name": "@fixture/worker",
+  "scripts": {
+    "test": "vitest"
+  }
+}

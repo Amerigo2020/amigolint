@@ -1,0 +1,12 @@
+set shell := ["bash", "-cu"]
+
+default:
+  echo default
+
+build target="all":
+  echo "{{target}}"
+
+_internal:
+  echo internal
+
+alias b := build

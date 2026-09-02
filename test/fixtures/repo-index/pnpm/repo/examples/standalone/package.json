@@ -1,0 +1,6 @@
+{
+  "name": "standalone",
+  "scripts": {
+    "standalone-only": "node check.mjs"
+  }
+}

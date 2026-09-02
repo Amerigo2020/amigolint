@@ -1,0 +1,1 @@
+# Excluded Next.js instructions

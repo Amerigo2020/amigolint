@@ -109,10 +109,11 @@ interface Finding {
 
 Detect references to files or directories that do not exist.
 
-Candidates: inline code spans, `@imports`, and bare tokens in prose matching `[\w.@~/-]+` that contain a `/` or end with a known extension (`.ts .tsx .js .mjs .cjs .json .md .mdx .yml .yaml .toml .py .go .rs .rb .sh .sql .prisma .env .css .scss .html .txt .lock .csv`).
+Candidates from inline code spans and `@imports` contain a `/` or end with a known extension (`.ts .tsx .js .mjs .cjs .json .md .mdx .yml .yaml .toml .py .go .rs .rb .sh .sql .prisma .env .css .scss .html .txt .lock .csv`). Bare tokens in prose are candidates only when they contain a `/` and either start with `./`, `../`, `~/`, or a dot-directory; their first segment is an existing top-level repository file or directory; or they start with a common source root (`src/`, `apps/`, `packages/`, `docs/`, `test/`, `tests/`, `scripts/`, `lib/`). Bare filenames without a slash are not prose candidates.
 
 Exclude a candidate when it:
 - contains `://` or starts with `www.` (URL)
+- contains `:` unless it is a Windows drive path (`C:\...` or `C:/...`)
 - starts with `-` (CLI flag) or contains whitespace (command)
 - contains glob characters `* ? { [` → instead run the glob against the repo index; report only if it matches zero files (message: "glob matches no files")
 - is an absolute path that does not have a file extension (`/health`, `/api/users`): treat as URL route, skip
@@ -120,7 +121,7 @@ Exclude a candidate when it:
 - resolves to an existing path relative to (a) the doc's directory, (b) repo root, (c) `$HOME` when starting with `~`
 - is listed in config `stalePath.ignore` (globs)
 
-Suggestion: fuzzy match the basename against the repo index (Levenshtein <= 2 on basename, or same basename in another directory). At most one suggestion.
+Suggestion: for inline code and `@imports`, prefer the same basename in another directory, breaking ties by the smallest full-path Levenshtein distance. Otherwise fuzzy match the basename against the repo index only when the candidate basename has at least four characters and the basename Levenshtein distance is <= 2. At most one suggestion. Prose findings do not receive suggestions.
 
 Severity note: candidates from prose (not inline code) are reported as `warn`, not `error`, because false positives are more likely there.
 
@@ -303,6 +304,7 @@ Programmatic API is public and documented so editors / other tools can embed it.
 ### M1 – Core: discovery, parser, repo index, AL001, AL002, pretty + json output (2 days)
 - Acceptance: fixtures for AL001 (12 cases incl. all exclusions listed in §6) and AL002 (8 cases) pass; running against the author's Fyndl repo reports the six missing gitnexus SKILL.md paths and zero false positives on `/health`, `/version`, `request.body`, `node .gitnexus/run.cjs analyze`, `.agents/skills/**` (glob that must be checked as glob).
 - Exit codes correct. `--format json` validated against a JSON schema in tests.
+- Full lint of a generated repository with 10,000 files and 30 instruction files containing 600 missing inline paths completes in under 3 s.
 
 ### M2 – Rules AL003 to AL008, AL011, suppression, config (2 days)
 - Acceptance: each rule has >= 6 fixture cases (3 positive, 3 negative-looking-positive). Config loading with rule overrides tested. Inline suppression tested.
@@ -312,7 +314,7 @@ Programmatic API is public and documented so editors / other tools can embed it.
 - Acceptance: SARIF validated with the official schema in tests; `--format github` produces annotations visible in a real PR of the repo itself (dogfood workflow `.github/workflows/lint-instructions.yml`).
 
 ### M4 – Polish for launch (2 days)
-- Perf test passes; install size measured in CI and printed.
+- Install size measured in CI and printed.
 - README per LAUNCH.md checklist; `examples/broken-repo/` with a deliberately bad CLAUDE.md; `vhs` tape in `demo/demo.tape`; GIF committed.
 - `scripts/study.ts` for the "State of CLAUDE.md" study (clone 100 repos shallow, run lint, aggregate to `study/results.json` + markdown table).
 - `v0.1.0` tagged, `npm publish --provenance` via GitHub Actions on tag.

@@ -1,0 +1,6 @@
+{
+  "name": "private-project",
+  "scripts": {
+    "private-check": "node check.mjs"
+  }
+}
