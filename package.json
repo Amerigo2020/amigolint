@@ -1,6 +1,6 @@
 {
   "name": "amigolint",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "Lint your CLAUDE.md, AGENTS.md, Cursor rules and Copilot instructions.",
   "license": "MIT",
   "repository": {
@@ -32,10 +32,13 @@
   "packageManager": "pnpm@10.33.0",
   "scripts": {
     "build": "pnpm generate:schema && tsc --noEmit && tsdown",
+    "demo": "pnpm build && tsx scripts/demo.ts",
+    "demo:gif": "pnpm build && tsx scripts/demo-gif.ts",
     "dev": "tsx src/cli.ts",
     "generate:schema": "tsx scripts/generate-schema.ts && biome format --write schema.json",
     "lint": "biome check .",
     "lint:fix": "biome check --write .",
+    "study": "tsx scripts/study.ts",
     "test": "vitest run"
   },
   "dependencies": {

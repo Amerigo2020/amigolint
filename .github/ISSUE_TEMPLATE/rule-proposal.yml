@@ -1,0 +1,68 @@
+name: Rule proposal
+description: Propose a focused, deterministic instruction-file check
+title: "rule: "
+labels:
+  - enhancement
+body:
+  - type: input
+    id: problem
+    attributes:
+      label: Problem
+      description: What stale or risky instruction pattern should this catch?
+    validations:
+      required: true
+  - type: dropdown
+    id: agents
+    attributes:
+      label: Agent formats
+      multiple: true
+      options:
+        - Claude Code
+        - Codex
+        - Cursor
+        - GitHub Copilot
+        - Gemini CLI
+        - Windsurf
+        - Cline / Roo
+        - Generic include glob
+    validations:
+      required: true
+  - type: dropdown
+    id: severity
+    attributes:
+      label: Proposed default severity
+      options:
+        - error
+        - warn
+        - info
+        - off
+    validations:
+      required: true
+  - type: textarea
+    id: positive
+    attributes:
+      label: Examples that should be reported
+      description: Provide at least three redacted examples.
+    validations:
+      required: true
+  - type: textarea
+    id: negative
+    attributes:
+      label: Similar examples that should not be reported
+      description: Provide at least three cases that protect against false positives.
+    validations:
+      required: true
+  - type: input
+    id: message
+    attributes:
+      label: Proposed finding message
+      description: Use one sentence without a trailing period.
+    validations:
+      required: true
+  - type: textarea
+    id: configuration
+    attributes:
+      label: Configuration needs
+      description: Explain any options, or write "None".
+    validations:
+      required: true

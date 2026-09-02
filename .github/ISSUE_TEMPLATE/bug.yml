@@ -1,0 +1,63 @@
+name: Bug report
+description: Report incorrect findings, crashes, or CLI behavior
+title: "bug: "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: Thanks for helping improve amigolint. Never paste a real secret.
+  - type: input
+    id: version
+    attributes:
+      label: amigolint version
+      description: Run `npx amigolint --version`.
+      placeholder: 0.1.0
+    validations:
+      required: true
+  - type: input
+    id: node
+    attributes:
+      label: Node.js version
+      description: Run `node --version`.
+      placeholder: v22.0.0
+    validations:
+      required: true
+  - type: dropdown
+    id: platform
+    attributes:
+      label: Operating system
+      options:
+        - Linux
+        - macOS
+        - Windows
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Minimal reproduction
+      description: Include the command and a redacted instruction-file sample.
+      render: markdown
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: checkboxes
+    id: safety
+    attributes:
+      label: Safety check
+      options:
+        - label: I removed or masked every credential and private value from this report.
+          required: true

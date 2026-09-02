@@ -1,0 +1,12 @@
+{
+  "rules": {
+    "token-budget": [
+      "warn",
+      {
+        "file": 300,
+        "fileError": 10000,
+        "agentTotal": 300
+      }
+    ]
+  }
+}

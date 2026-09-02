@@ -1,0 +1,51 @@
+---
+description: Rules for the demo API
+globs:
+  - "src/**/*.missing"
+  - 42
+alwaysApply: false
+---
+
+# API rules
+
+- Always inspect demo concern alpha01
+- Always inspect demo concern bravo02
+- Always inspect demo concern charlie03
+- Always inspect demo concern delta04
+- Always inspect demo concern echo05
+- Always inspect demo concern foxtrot06
+- Always inspect demo concern golf07
+- Always inspect demo concern hotel08
+- Always inspect demo concern india09
+- Always inspect demo concern juliet10
+- Always inspect demo concern kilo11
+- Always inspect demo concern lima12
+- Always inspect demo concern mike13
+- Always inspect demo concern november14
+- Always inspect demo concern oscar15
+- Always inspect demo concern papa16
+- Always inspect demo concern quebec17
+- Always inspect demo concern romeo18
+- Always inspect demo concern sierra19
+- Always inspect demo concern tango20
+- Always inspect demo concern uniform21
+- Always inspect demo concern victor22
+- Always inspect demo concern whiskey23
+- Always inspect demo concern xray24
+- Always inspect demo concern yankee25
+- Always inspect demo concern zulu26
+- Always inspect demo concern amber27
+- Always inspect demo concern bronze28
+- Always inspect demo concern cobalt29
+- Always inspect demo concern denim30
+- Always inspect demo concern ember31
+- Always inspect demo concern frost32
+- Always inspect demo concern granite33
+- Always inspect demo concern harbor34
+- Always inspect demo concern ivory35
+- Always inspect demo concern jasper36
+- Always inspect demo concern kelp37
+- Always inspect demo concern lagoon38
+- Always inspect demo concern marble39
+- Always inspect demo concern nectar40
+- Always inspect demo concern orchid41

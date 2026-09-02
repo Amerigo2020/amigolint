@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   comparisonGroups,
+  documentLoadMode,
   isAutoLoadedAtStart,
   isLazilyLoaded,
   readCrossFileMode,
@@ -169,6 +170,9 @@ describe('instruction document groups', () => {
     const doc = parseDoc(file, raw);
     expect(isAutoLoadedAtStart(doc)).toBe(expectedAutoLoaded);
     expect(isLazilyLoaded(doc)).toBe(expectedLazy);
+    expect(documentLoadMode(doc)).toBe(
+      expectedAutoLoaded && !expectedLazy ? 'always' : 'on-demand',
+    );
   });
 
   it('defaults invalid or omitted cross-file modes to auto', () => {
