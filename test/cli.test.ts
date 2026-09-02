@@ -330,18 +330,118 @@ describe('amigolint CLI', () => {
     }
     expect(result.stdout).toContain('Default');
     expect(result.stdout).toContain('Description');
+    expect(result.stdout).not.toContain('| Code | Rule |');
   });
 
-  it('prints per-agent instruction statistics', async () => {
-    const result = await runCli(['stats'], path.join(fixtureRoot, 'clean'));
+  it('renders the rules table as README-ready Markdown', async () => {
+    const result = await runCli(['rules', '--format', 'md'], repoRoot);
+    const lines = result.stdout.trimEnd().split('\n');
 
-    expect(result).toEqual({
-      code: 0,
-      stderr: '',
-      stdout: expect.stringContaining('codex'),
-    });
-    expect(result.stdout).toContain('AGENTS.md');
-    expect(result.stdout).toContain('Approx tokens');
+    expect(result.code).toBe(0);
+    expect(result.stderr).toBe('');
+    expect(lines).toHaveLength(17);
+    expect(lines[0]).toBe('| Code | Rule | Default | Description |');
+    expect(lines[1]).toBe('| --- | --- | --- | --- |');
+    expect(lines[2]).toBe(
+      '| AL001 | `stale-path` | error | Reports file, directory, and glob references that no longer resolve. |',
+    );
+    expect(lines.at(-1)).toContain('| AL015 | `absolute-user-path` | warn |');
+  });
+
+  it('splits startup and on-demand instruction statistics per agent', async () => {
+    const cwd = path.join(fixtureRoot, 'stats');
+    const sources: Record<string, string> = {
+      'CLAUDE.md': 'c'.repeat(36),
+      'CLAUDE.local.md': 'l'.repeat(72),
+      '.claude/CLAUDE.md': 'm'.repeat(108),
+      'packages/api/CLAUDE.md': 'n'.repeat(144),
+      '.claude/skills/review/SKILL.md': `---\nname: review\ndescription: Review changes\n---\n${'s'.repeat(180)}`,
+      '.claude/agents/reviewer.md': 'a'.repeat(216),
+      '.claude/commands/check.md': 'd'.repeat(252),
+      'AGENTS.md': 'x'.repeat(36),
+      'packages/web/AGENTS.md': 'y'.repeat(72),
+      '.agents/skills/review/SKILL.md': `---\nname: review\ndescription: Review changes\n---\n${'k'.repeat(108)}`,
+      '.cursorrules': 'r'.repeat(36),
+      '.cursor/rules/always.mdc': `---\nalwaysApply: true\n---\n${'u'.repeat(72)}`,
+      '.cursor/rules/scoped.mdc': `---\nglobs: "src/**"\n---\n${'g'.repeat(108)}`,
+      '.github/copilot-instructions.md': 'p'.repeat(36),
+      '.github/instructions/source.instructions.md': `---\napplyTo: "src/**"\n---\n${'i'.repeat(72)}`,
+    };
+    for (const [file, source] of Object.entries(sources)) {
+      const target = path.join(cwd, file);
+      await mkdir(path.dirname(target), { recursive: true });
+      await writeFile(target, source);
+    }
+
+    const tokensFor = (...files: string[]): number =>
+      files.reduce(
+        (total, file) => total + Math.ceil((sources[file]?.length ?? 0) / 3.6),
+        0,
+      );
+    const claudeAlways = tokensFor(
+      'CLAUDE.md',
+      'CLAUDE.local.md',
+      '.claude/CLAUDE.md',
+    );
+    const claudeOnDemand = tokensFor(
+      'packages/api/CLAUDE.md',
+      '.claude/skills/review/SKILL.md',
+      '.claude/agents/reviewer.md',
+      '.claude/commands/check.md',
+    );
+    const codexAlways = tokensFor('AGENTS.md');
+    const codexOnDemand = tokensFor(
+      'packages/web/AGENTS.md',
+      '.agents/skills/review/SKILL.md',
+    );
+    const cursorAlways = tokensFor('.cursorrules', '.cursor/rules/always.mdc');
+    const cursorOnDemand = tokensFor('.cursor/rules/scoped.mdc');
+    const copilotAlways = tokensFor('.github/copilot-instructions.md');
+    const copilotOnDemand = tokensFor(
+      '.github/instructions/source.instructions.md',
+    );
+    const alwaysTotal =
+      claudeAlways + codexAlways + cursorAlways + copilotAlways;
+
+    const result = await runCli(['stats'], cwd);
+
+    expect(result.code).toBe(0);
+    expect(result.stderr).toBe('');
+    expect(result.stdout).toContain('Agent');
+    expect(result.stdout).toContain('Always loaded');
+    expect(result.stdout).toContain('On demand');
+    expect(result.stdout).toContain('Largest file');
+    expect(result.stdout).toMatch(
+      new RegExp(
+        `^claude\\s+3 files \\(≈${claudeAlways} tokens\\)\\s+4 files \\(≈${claudeOnDemand} tokens\\)`,
+        'm',
+      ),
+    );
+    expect(result.stdout).toMatch(
+      new RegExp(
+        `^codex\\s+1 file \\(≈${codexAlways} tokens\\)\\s+2 files \\(≈${codexOnDemand} tokens\\)`,
+        'm',
+      ),
+    );
+    expect(result.stdout).toMatch(
+      new RegExp(
+        `^cursor\\s+2 files \\(≈${cursorAlways} tokens\\)\\s+1 file \\(≈${cursorOnDemand} tokens\\)`,
+        'm',
+      ),
+    );
+    expect(result.stdout).toMatch(
+      new RegExp(
+        `^copilot\\s+1 file \\(≈${copilotAlways} tokens\\)\\s+1 file \\(≈${copilotOnDemand} tokens\\)`,
+        'm',
+      ),
+    );
+    expect(result.stdout).toContain(
+      `.claude/commands/check.md (≈${tokensFor('.claude/commands/check.md')})`,
+    );
+    expect(result.stdout).toContain(
+      `Always loaded: 7 files (≈${alwaysTotal} tokens)\n`,
+    );
+    expect(result.stdout).not.toContain(`Always loaded: 15 files`);
   });
 
   it('initializes a documented config once and can load it', async () => {

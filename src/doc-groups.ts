@@ -1,6 +1,7 @@
 import type { AgentKind, Doc } from './types.js';
 
 export type CrossFileMode = 'auto' | 'all' | 'none';
+export type DocumentLoadMode = 'always' | 'on-demand';
 
 export const DEFAULT_CROSS_FILE_MODE: CrossFileMode = 'auto';
 
@@ -38,6 +39,17 @@ export function readCrossFileMode(
   return value === 'all' || value === 'none' || value === 'auto'
     ? value
     : DEFAULT_CROSS_FILE_MODE;
+}
+
+/**
+ * Classify documents for aggregate load-cost reporting. Nested instructions
+ * are contextual rather than startup-loaded, while explicitly lazy documents
+ * also remain on demand if a future path pattern overlaps an always rule.
+ */
+export function documentLoadMode(doc: Doc): DocumentLoadMode {
+  return isAutoLoadedAtStart(doc) && !isLazilyLoaded(doc)
+    ? 'always'
+    : 'on-demand';
 }
 
 export function isAutoLoadedAtStart(doc: Doc): boolean {

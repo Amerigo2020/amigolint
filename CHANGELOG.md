@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-09-02
+
 ### Added
 
 - Initial pnpm, TypeScript, Biome, Vitest, and tsdown project scaffold
@@ -30,6 +32,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Actions workflow-command output
 - `rules`, `stats`, and `init` subcommands, plus `--max-warnings` enforcement
 - A dogfood workflow that annotates findings from this repository's `AGENTS.md`
+- Launch documentation, community health files, and a deliberately broken demo
+  repository that exercises every rule
+- A reproducible VHS demo tape and a rate-limit-friendly, resumable repository
+  study script
+- Markdown output for `amigolint rules --format md`
+- Packed and unpacked npm artifact size checks in CI
+- Tag/version-gated npm provenance publishing with generated GitHub release
+  notes
 
 ### Changed
 
@@ -53,5 +63,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   tracks their contents
 - Accepted comments in configuration files so `amigolint init` can document
   every generated rule default
+- Split `amigolint stats` into always-loaded and on-demand file/token totals so
+  lazily loaded instructions no longer inflate startup context estimates
 
 [Unreleased]: https://github.com/Amerigo2020/amigolint/commits/main
+[0.1.0]: https://github.com/Amerigo2020/amigolint/releases/tag/v0.1.0

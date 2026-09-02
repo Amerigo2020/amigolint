@@ -33,7 +33,7 @@ jobs:
           package-manager-cache: false
 
       - name: Install dependencies
-        run: pnpm install --no-frozen-lockfile
+        run: pnpm install --frozen-lockfile
 
       - name: Lint
         run: pnpm lint
@@ -62,15 +62,79 @@ jobs:
         run: |
           set -euo pipefail
           pack_dir="$(mktemp -d "$RUNNER_TEMP/amigolint-pack.XXXXXX")"
+          unpack_dir="$(mktemp -d "$RUNNER_TEMP/amigolint-unpack.XXXXXX")"
           install_dir="$(mktemp -d "$RUNNER_TEMP/amigolint-install.XXXXXX")"
+          pack_path="$pack_dir/amigolint.tgz"
 
-          pnpm pack --pack-destination "$pack_dir"
+          pnpm pack --out "$pack_path"
+          tar -xzf "$pack_path" -C "$unpack_dir"
+
+          packed_bytes="$(wc -c < "$pack_path" | tr -d '[:space:]')"
+          unpacked_bytes="$(node --input-type=module - "$unpack_dir/package" <<'NODE'
+          import { readdir, stat } from 'node:fs/promises';
+          import path from 'node:path';
+
+          async function directorySize(directory) {
+            let total = 0;
+            for (const entry of await readdir(directory, { withFileTypes: true })) {
+              const entryPath = path.join(directory, entry.name);
+              if (entry.isDirectory()) {
+                total += await directorySize(entryPath);
+              } else if (entry.isFile()) {
+                total += (await stat(entryPath)).size;
+              }
+            }
+            return total;
+          }
+
+          process.stdout.write(String(await directorySize(process.argv[2])));
+          NODE
+          )"
+
+          echo "Packed tarball size: ${packed_bytes} bytes"
+          echo "Unpacked package size: ${unpacked_bytes} bytes"
+          if (( unpacked_bytes >= 2000000 )); then
+            echo "Unpacked package is ${unpacked_bytes} bytes; it must be under 2000000"
+            exit 1
+          fi
 
           (
             cd "$install_dir"
             npm init --yes >/dev/null
-            npm install "$pack_dir"/amigolint-*.tgz
+            npm install "$pack_path"
             test -x node_modules/.bin/amigolint
+
+            medium_dir="$install_dir/medium-repo"
+            node --input-type=module - "$medium_dir" <<'NODE'
+          import { mkdir, writeFile } from 'node:fs/promises';
+          import path from 'node:path';
+
+          const root = process.argv[2];
+          for (let directoryIndex = 0; directoryIndex < 100; directoryIndex += 1) {
+            const directory = path.join(root, 'src', `group-${directoryIndex}`);
+            await mkdir(directory, { recursive: true });
+            await Promise.all(
+              Array.from({ length: 100 }, (_, fileIndex) =>
+                writeFile(path.join(directory, `module-${fileIndex}.ts`), ''),
+              ),
+            );
+          }
+          await writeFile(
+            path.join(root, 'AGENTS.md'),
+            '# Validation\n\nRun `npm test`.\n',
+          );
+          NODE
+
+            started_at="$(node -e 'process.stdout.write(String(Date.now()))')"
+            npx --no-install amigolint "$medium_dir" --no-color >/dev/null
+            finished_at="$(node -e 'process.stdout.write(String(Date.now()))')"
+            elapsed_ms="$((finished_at - started_at))"
+            echo "Cold npx lint time: ${elapsed_ms} ms"
+            if (( elapsed_ms >= 5000 )); then
+              echo "Cold npx lint took ${elapsed_ms} ms; it must be under 5000"
+              exit 1
+            fi
+
             package_version="$(node -p "require('./node_modules/amigolint/package.json').version")"
             test "$(npx amigolint --version)" = "$package_version"
             node --input-type=module -e "import('amigolint').then(({ lint }) => { if (typeof lint !== 'function') process.exit(1) })"

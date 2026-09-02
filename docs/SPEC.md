@@ -255,8 +255,8 @@ amigolint [paths...]                 lint (default command)
   --quiet                            errors only
   --no-color
 amigolint init                       write amigolint.config.json
-amigolint rules                      table of rules, codes, default severity, one-line docs
-amigolint stats                      per-agent table: files loaded, approx tokens, largest file
+amigolint rules [--format md]        table of rules, codes, default severity, one-line docs
+amigolint stats                      per-agent always-loaded/on-demand file and token totals, largest file
 amigolint --version / --help
 ```
 

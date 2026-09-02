@@ -8,6 +8,7 @@ import { fileURLToPath } from 'node:url';
 import { Command } from 'commander';
 import { loadConfig } from './config.js';
 import { discover, findRepoRoot } from './discover.js';
+import { documentLoadMode } from './doc-groups.js';
 import { lint } from './index.js';
 import { parseDoc } from './parse.js';
 import { formatGithub } from './report/github.js';
@@ -42,7 +43,7 @@ export async function main(argv: string[] = process.argv): Promise<void> {
     .version(version)
     .option(
       '--format <format>',
-      'output format: pretty, json, sarif, or github',
+      'output format (lint: pretty, json, sarif, github; rules: md)',
       'pretty',
     )
     .option('--config <file>', 'configuration file')
@@ -62,7 +63,8 @@ export async function main(argv: string[] = process.argv): Promise<void> {
     .command('rules')
     .description('list rules and their default severities')
     .action(() => {
-      process.stdout.write(`${formatRulesTable()}\n`);
+      const format = parseRulesFormat(program.opts<CliOptions>().format);
+      process.stdout.write(`${formatRulesTable(format)}\n`);
     });
   program
     .command('stats')
@@ -185,16 +187,31 @@ function errorsOnly(report: Report): Report {
   };
 }
 
-function formatRulesTable(): string {
-  return formatTable([
+type RulesOutputFormat = 'table' | 'md';
+
+function parseRulesFormat(format: string): RulesOutputFormat {
+  if (format === 'pretty') {
+    return 'table';
+  }
+  if (format === 'md') {
+    return 'md';
+  }
+  throw new Error(
+    `Unsupported rules format \`${format}\`; expected pretty or md`,
+  );
+}
+
+function formatRulesTable(format: RulesOutputFormat): string {
+  const rows = [
     ['Code', 'Rule', 'Default', 'Description'],
     ...rules.map((rule) => [
       rule.code,
-      rule.id,
+      format === 'md' ? `\`${rule.id}\`` : rule.id,
       rule.defaultSeverity,
       rule.docs.replace(/\s+/g, ' ').trim(),
     ]),
-  ]);
+  ];
+  return format === 'md' ? formatMarkdownTable(rows) : formatTable(rows);
 }
 
 async function formatStatsTable(cwd: string): Promise<string> {
@@ -217,30 +234,35 @@ async function formatStatsTable(cwd: string): Promise<string> {
     byAgent.set(doc.agent, entries);
   }
 
-  return formatTable([
-    ['Agent', 'Files', 'Approx tokens', 'Largest file'],
+  const alwaysLoaded = docs.filter((doc) => documentLoadMode(doc) === 'always');
+  const table = formatTable([
+    ['Agent', 'Always loaded', 'On demand', 'Largest file'],
     ...[...byAgent.entries()]
       .sort(([left], [right]) => left.localeCompare(right))
       .map(([agent, entries]) => {
+        const always = entries.filter(
+          (doc) => documentLoadMode(doc) === 'always',
+        );
+        const onDemand = entries.filter(
+          (doc) => documentLoadMode(doc) === 'on-demand',
+        );
         const largest = [...entries].sort(
           (left, right) =>
             right.approxTokens - left.approxTokens ||
             left.path.localeCompare(right.path),
         )[0];
-        const total = entries.reduce(
-          (sum, { approxTokens }) => sum + approxTokens,
-          0,
-        );
         return [
           agent,
-          String(entries.length),
-          `≈${total}`,
+          formatDocStats(always),
+          formatDocStats(onDemand),
           largest === undefined
             ? '-'
             : `${largest.path} (≈${largest.approxTokens})`,
         ];
       }),
   ]);
+  const alwaysLoadedTokens = totalTokens(alwaysLoaded);
+  return `${table}\n\nAlways loaded: ${formatFileCount(alwaysLoaded.length)} (≈${alwaysLoadedTokens} tokens)`;
 }
 
 async function initializeConfig(cwd: string): Promise<void> {
@@ -296,6 +318,36 @@ function formatTable(rows: string[][]): string {
         .trimEnd(),
     )
     .join('\n');
+}
+
+function formatMarkdownTable(rows: string[][]): string {
+  const [header, ...body] = rows;
+  if (!header) {
+    return '';
+  }
+  const separator = header.map(() => '---');
+  return [header, separator, ...body]
+    .map(
+      (row) =>
+        `| ${row.map((value) => escapeMarkdownCell(value)).join(' | ')} |`,
+    )
+    .join('\n');
+}
+
+function escapeMarkdownCell(value: string): string {
+  return value.replaceAll('\\', '\\\\').replaceAll('|', '\\|');
+}
+
+function formatDocStats(docs: ReadonlyArray<{ approxTokens: number }>): string {
+  return `${formatFileCount(docs.length)} (≈${totalTokens(docs)} tokens)`;
+}
+
+function formatFileCount(count: number): string {
+  return `${count} file${count === 1 ? '' : 's'}`;
+}
+
+function totalTokens(docs: ReadonlyArray<{ approxTokens: number }>): number {
+  return docs.reduce((total, { approxTokens }) => total + approxTokens, 0);
 }
 
 function isFileExistsError(error: unknown): boolean {
