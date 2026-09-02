@@ -1,0 +1,340 @@
+# amigolint – Specification
+
+> Lint your CLAUDE.md, AGENTS.md, Cursor rules and Copilot instructions.
+> Catch stale paths, dead commands and leaked secrets before your agent reads them.
+
+Status: v0.1 spec, 2026-09-02. Owner: Amerigo Velletti. Implementation: Codex. Review: Claude.
+
+## 1. Problem
+
+Agent instruction files (CLAUDE.md, AGENTS.md, `.cursor/rules/*.mdc`, `.github/copilot-instructions.md`) rot faster than code. Nobody runs them, so nothing fails when a referenced file is renamed, a script is removed, or the file grows to 10k tokens that get injected into every request. Real example from the author's own repo on 2026-09-02: `CLAUDE.md` referenced six `.claude/skills/gitnexus/*/SKILL.md` files that did not exist.
+
+amigolint is `eslint` for those files: fast, zero-config, no LLM required, runs in CI.
+
+## 2. Non-goals (v0.x)
+
+- No LLM calls by default. An optional `--ai` mode may come in v0.3, never required.
+- No auto-rewrite of prose. `--fix` only for mechanically safe fixes (v0.2).
+- Not a formatter. Markdown style is out of scope.
+
+## 3. Tech stack
+
+| Concern | Choice | Why |
+|---------|--------|-----|
+| Language | TypeScript 5.x, strict, ESM only | matches author's stack |
+| Runtime | Node >= 20 | `fs.glob` not yet stable in 20, use `tinyglobby` |
+| Package manager | pnpm | |
+| Bundler | `tsdown` (single `dist/cli.mjs`, shebang) | fast, zero-config |
+| CLI parsing | `commander` | well known, tiny |
+| Colors | `picocolors` | 0 deps |
+| Globbing | `tinyglobby` | small, respects ignore patterns |
+| YAML frontmatter | `yaml` | for `.mdc` and `SKILL.md` |
+| Tests | `vitest` | |
+| Lint/format | `biome` | matches author's stack |
+| Tokens | heuristic `Math.ceil(chars / 3.6)` labelled "≈" in output | exact tokenizer is 2 MB; add `--exact-tokens` via optional `gpt-tokenizer` in v0.2 |
+
+Hard rule: install size under 2 MB, cold `npx amigolint` under 5 s on a 10k-file repo. Measure in CI.
+
+## 4. Discovery: which files are linted
+
+Default targets, searched from repo root (root = nearest ancestor with `.git`, else cwd), excluding `node_modules`, `.git`, `dist`, `build`, `.next`, `coverage`, `vendor`, and anything in `.gitignore` (use `git ls-files --cached --others --exclude-standard` when git is available, fallback to tinyglobby with a static ignore list):
+
+| Agent | Files | Auto-loaded by agent? |
+|-------|-------|------------------------|
+| Claude Code | `CLAUDE.md`, `CLAUDE.local.md`, `**/CLAUDE.md`, `.claude/CLAUDE.md`, `.claude/skills/*/SKILL.md`, `.claude/agents/*.md`, `.claude/commands/*.md` | root + nested on demand; skills lazily |
+| Codex | `AGENTS.md`, `**/AGENTS.md`, `.agents/skills/*/SKILL.md` | root always |
+| Cursor | `.cursorrules`, `.cursor/rules/*.mdc` | per `alwaysApply`/`globs` |
+| Copilot | `.github/copilot-instructions.md`, `.github/instructions/*.instructions.md` | always |
+| Gemini CLI | `GEMINI.md` | always |
+| Windsurf | `.windsurfrules`, `.windsurf/rules/*.md` | always |
+| Cline / Roo | `.clinerules`, `.clinerules/*.md`, `.roo/rules/*.md` | always |
+| Generic | any additional globs from config `include` | |
+
+Nested `CLAUDE.md`/`AGENTS.md` under `.claude/worktrees/**` are excluded by default (they are copies).
+
+The user can pass explicit paths: `amigolint CLAUDE.md docs/AGENTS.md`.
+
+## 5. Parsing model
+
+Each file is parsed once into a `Doc`:
+
+```ts
+interface Doc {
+  path: string;            // repo-relative
+  agent: AgentKind;        // 'claude' | 'codex' | 'cursor' | 'copilot' | ...
+  raw: string;
+  frontmatter?: Record<string, unknown>;  // parsed YAML if file starts with ---
+  lines: Line[];           // { n: number, text: string, inCodeBlock: boolean, codeLang?: string }
+  codeBlocks: CodeBlock[]; // { startLine, endLine, lang, body }
+  inlineCode: Span[];      // backtick spans outside code blocks: { line, col, text }
+  links: Link[];           // markdown links and bare URLs: { line, text, target, isLocal }
+  imports: Span[];         // Claude Code `@path` imports at line start or after whitespace
+  headings: Heading[];
+  approxTokens: number;
+}
+```
+
+Parsing is hand-written (regex + state machine), no markdown AST library. Must handle fenced blocks with ``` and ~~~, nested backticks, and Windows line endings.
+
+## 6. Rules
+
+Each rule is a module `src/rules/<id>.ts` exporting:
+
+```ts
+interface Rule {
+  id: string;                 // kebab-case, e.g. 'stale-path'
+  code: string;               // 'AL001'
+  defaultSeverity: 'error' | 'warn' | 'info' | 'off';
+  docs: string;               // one paragraph, shown by `amigolint rules`
+  check(ctx: RuleContext): Finding[];
+}
+
+interface RuleContext {
+  doc: Doc;
+  allDocs: Doc[];
+  repo: RepoIndex;            // file list, package.json scripts, Makefile targets, justfile recipes
+  options: Record<string, unknown>;
+}
+
+interface Finding {
+  rule: string; code: string; severity: Severity;
+  file: string; line: number; col?: number; endLine?: number;
+  message: string;            // one sentence, no trailing period
+  suggestion?: string;        // e.g. "Did you mean `src/api/routes.ts`?"
+  fixable?: boolean;
+}
+```
+
+### AL001 `stale-path` (error)
+
+Detect references to files or directories that do not exist.
+
+Candidates: inline code spans, `@imports`, and bare tokens in prose matching `[\w.@~/-]+` that contain a `/` or end with a known extension (`.ts .tsx .js .mjs .cjs .json .md .mdx .yml .yaml .toml .py .go .rs .rb .sh .sql .prisma .env .css .scss .html .txt .lock .csv`).
+
+Exclude a candidate when it:
+- contains `://` or starts with `www.` (URL)
+- starts with `-` (CLI flag) or contains whitespace (command)
+- contains glob characters `* ? { [` → instead run the glob against the repo index; report only if it matches zero files (message: "glob matches no files")
+- is an absolute path that does not have a file extension (`/health`, `/api/users`): treat as URL route, skip
+- is a known non-path: `package.json` keys like `request.body`, `process.env.X`, `foo.bar()` (contains `(`), versions like `1.2.3`, domain-like `foo.com`
+- resolves to an existing path relative to (a) the doc's directory, (b) repo root, (c) `$HOME` when starting with `~`
+- is listed in config `stalePath.ignore` (globs)
+
+Suggestion: fuzzy match the basename against the repo index (Levenshtein <= 2 on basename, or same basename in another directory). At most one suggestion.
+
+Severity note: candidates from prose (not inline code) are reported as `warn`, not `error`, because false positives are more likely there.
+
+### AL002 `stale-script` (error)
+
+Detect commands that reference non-existent package scripts or make/just targets.
+
+Patterns (inline code and code blocks with lang `bash|sh|zsh|shell|console|` empty):
+- `npm run <s>`, `npm test` (requires `test` script), `pnpm <s>`, `pnpm run <s>`, `yarn <s>`, `yarn run <s>`, `bun run <s>`
+- `make <target>` → Makefile targets (regex `^([a-zA-Z0-9_.-]+):` excluding `.PHONY`)
+- `just <recipe>` → justfile
+- `turbo run <task>` → `turbo.json` tasks (pipeline or tasks key)
+
+Skip `pnpm install|add|remove|dlx|exec|create|i|up|why|ls|-v|--version` and the same set for npm/yarn/bun. Resolve `package.json` in the doc's directory, then walk up to root; in workspaces also accept scripts present in any workspace package (report as `info` "script only exists in packages/x" if not in the nearest package.json).
+
+### AL003 `broken-import` (error)
+
+- Claude Code `@path` imports: line-start or whitespace-preceded `@` followed by a path-like token. Must resolve relative to the doc or `~`. Ignore `@scope/pkg` npm names (no `/` after a dot-free scope? rule: skip if token matches `^@[\w-]+/[\w.-]+$` and does not exist on disk AND `node_modules/<token>` exists or the token has no extension).
+- `.mdc` frontmatter `globs`: each glob must match at least one file.
+- `SKILL.md`: frontmatter `name` must equal its directory name (Claude Code convention) → `warn`.
+
+### AL004 `secret-leak` (error)
+
+Instruction files are sent to LLM providers on every request. Patterns:
+
+| Name | Regex |
+|------|-------|
+| AWS access key | `AKIA[0-9A-Z]{16}` |
+| OpenAI / Anthropic style | `\bsk-(?:ant-)?[A-Za-z0-9_-]{20,}` |
+| GitHub token | `\bgh[pousr]_[A-Za-z0-9]{36,}` |
+| Slack token | `\bxox[baprs]-[A-Za-z0-9-]{10,}` |
+| Private key block | `-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----` |
+| Generic assignment | `(?i)(api[_-]?key|secret|token|password)\s*[:=]\s*["']?[A-Za-z0-9_\-]{16,}` |
+| JWT | `\beyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}` |
+| Database URL with password | `(?:postgres|mysql|mongodb)(?:\+srv)?://[^:\s]+:[^@\s]{4,}@` |
+
+Exclusions: values that are obviously placeholders (`xxx`, `your-`, `<...>`, `example`, `changeme`, `123456`, `sk-...`). Report with the secret masked (first 4 chars + `****`). Never print the full value.
+
+### AL005 `token-budget` (warn)
+
+Per file: warn above `4000` approx tokens, error above `12000`. Config `tokenBudget: { file: 4000, fileError: 12000, agentTotal: 8000 }`.
+Per agent: sum of files that agent auto-loads at session start (see table in §4, "always" rows plus root + `.claude/CLAUDE.md` for Claude). Warn if sum > `agentTotal`. Message includes the total and the three largest contributors.
+
+### AL006 `dead-link` (warn)
+
+Markdown links `[text](target)` and `<target>` where target is local (no scheme, not `#anchor`, not `mailto:`): target must exist (strip `#fragment` and `?query`). HTTP(S) links are only checked with `--check-urls` (HEAD request, 5 s timeout, 8 concurrent, report 4xx/5xx/timeout as `info`).
+
+### AL007 `duplicate-rule` (warn)
+
+Across all docs, compare non-empty prose lines longer than 40 chars, normalized (lowercase, collapse whitespace, strip markdown bullets/punctuation). Similarity = Sørensen–Dice on word bigrams. Report pairs with similarity >= 0.9, once per pair, pointing at the second occurrence with "duplicates <file>:<line>". Skip lines inside code blocks and headings.
+
+### AL008 `contradiction` (warn)
+
+Heuristic only, always labelled "possible contradiction". For every pair of imperative lines (start with or contain `always|never|must|must not|do not|don't|avoid|prefer|use|only`), extract content keywords (words >= 4 chars minus stopwords and the modal words above). If they share >= 2 keywords and one is positive (`always|must|use|prefer|only`) while the other is negative (`never|must not|do not|don't|avoid`), report once per pair. Fixture-driven; precision matters more than recall.
+
+### AL009 `vague-rule` (info)
+
+Lines matching weasel patterns: `write (good|clean|quality) code`, `be careful`, `use best practices`, `follow (the )?conventions`, `as appropriate`, `when necessary`, `properly`, `etc\.?$`. Message: "Vague instruction; agents can't act on it. Say what to do instead". Off by default in `--format github` to keep CI quiet? No: keep on, severity info does not fail CI.
+
+### AL010 `missing-essentials` (info)
+
+For root-level docs of each agent: if none of the docs mentions a build, test or lint command (detect `npm|pnpm|yarn|bun|make|cargo|go test|pytest|vitest|jest` inside inline code or code blocks), report once per repo: "No build/test command found in agent instructions".
+
+### AL011 `frontmatter` (error)
+
+- `.mdc`: frontmatter present; at least one of `description`, `globs`, `alwaysApply`. `globs` must be string or string array.
+- `SKILL.md` (Claude and Codex): `name` and `description` required; `description` under 1024 chars; name kebab-case.
+- `.claude/agents/*.md`: `name`, `description` required; `tools` if present is a comma-separated string or array.
+- `.github/instructions/*.instructions.md`: `applyTo` required.
+
+### AL012 `nested-override` (info)
+
+A nested `CLAUDE.md`/`AGENTS.md` that contains >= 3 lines with duplicate-rule similarity to the root file. Message: "Nested file repeats N lines from the root; agents load both".
+
+### AL013 `huge-code-block` (warn)
+
+Code block longer than 40 lines. Message: "Code block of N lines; link to the file instead of inlining it".
+
+### AL014 `todo-marker` (info)
+
+`TODO|FIXME|TBD|XXX|WIP` outside code blocks.
+
+### AL015 `absolute-user-path` (warn)
+
+Paths containing `/Users/<name>/` or `/home/<name>/` or `C:\Users\`. Message: "Machine-specific path; other contributors and CI won't have it".
+
+## 7. Inline suppression
+
+- `<!-- amigolint-disable-next-line stale-path -->` suppresses the next non-blank line.
+- `<!-- amigolint-disable stale-path, dead-link -->` from here to end of file or until `<!-- amigolint-enable -->`.
+- `<!-- amigolint-disable-file -->` at top.
+Suppressed findings are counted and shown in the summary line ("3 suppressed").
+
+## 8. Configuration
+
+Lookup order: `--config <path>`, `amigolint.config.json`, `.amigolintrc.json`, `package.json#amigolint`. Merged over defaults. Schema (also shipped as `schema.json` for editor completion):
+
+```jsonc
+{
+  "$schema": "https://raw.githubusercontent.com/Amerigo2020/amigolint/main/schema.json",
+  "include": ["docs/agents/*.md"],          // additional globs
+  "exclude": ["**/fixtures/**"],
+  "rules": {
+    "stale-path": "error",
+    "vague-rule": "off",
+    "token-budget": ["warn", { "file": 6000, "agentTotal": 10000 }],
+    "stale-path": ["error", { "ignore": ["/api/**"] }]
+  },
+  "checkUrls": false
+}
+```
+
+`amigolint init` writes a minimal config with all rules at default and a comment per rule.
+
+## 9. CLI
+
+```
+amigolint [paths...]                 lint (default command)
+  --format pretty|json|sarif|github  default pretty; github emits ::error/::warning workflow commands
+  --config <file>
+  --rule <id>[,<id>]                 only run these rules
+  --max-warnings <n>                 exit 1 when exceeded
+  --check-urls
+  --quiet                            errors only
+  --no-color
+amigolint init                       write amigolint.config.json
+amigolint rules                      table of rules, codes, default severity, one-line docs
+amigolint stats                      per-agent table: files loaded, approx tokens, largest file
+amigolint --version / --help
+```
+
+Exit codes: `0` no errors (warnings allowed unless `--max-warnings`), `1` findings at error level, `2` runtime/config error.
+
+Pretty output (one file block per file, ESLint-like):
+
+```
+CLAUDE.md
+  12:14  error  stale-path   `.claude/skills/gitnexus/gitnexus-cli/SKILL.md` does not exist
+  40:3   warn   token-budget file is ≈4.9k tokens (limit 4k)
+  55:1   info   vague-rule   "follow best practices" is not actionable
+
+✖ 1 error, 1 warning, 1 info in 3 files (≈9.2k tokens across agent instructions)
+```
+
+JSON output: `{ version, root, files: [{ path, agent, approxTokens }], findings: Finding[], summary: { errors, warnings, infos, suppressed } }`.
+SARIF 2.1.0 with one `rule` entry per rule so GitHub Code Scanning renders it.
+
+## 10. Architecture
+
+```
+src/
+  cli.ts              commander setup, exit codes
+  index.ts            programmatic API: lint({ root, paths?, config? }): Promise<Report>
+  config.ts           load + validate config (zod), defaults
+  discover.ts         target file discovery (§4)
+  parse.ts            Doc parser (§5)
+  repo-index.ts       file list, scripts, make targets, just recipes, workspaces; cached per run
+  rules/index.ts      registry
+  rules/<id>.ts       one rule per file
+  report/pretty.ts, json.ts, sarif.ts, github.ts
+  tokens.ts           approx tokens
+  suppress.ts         inline comments
+test/
+  fixtures/<rule>/repo/...   a mini repo per rule
+  fixtures/<rule>/expected.json
+  rules/<id>.test.ts
+  cli.test.ts                 spawns the built CLI, checks exit codes and formats
+  perf.test.ts                generates a 10k-file tree, asserts < 3 s lint time
+```
+
+Programmatic API is public and documented so editors / other tools can embed it.
+
+## 11. Milestones and acceptance criteria
+
+### M0 – Skeleton (0.5 day)
+- Repo scaffold: pnpm, TS strict, biome, vitest, tsdown, `bin` entry, GitHub Actions CI (node 20 + 22, macOS + ubuntu), MIT license, `CHANGELOG.md`.
+- `amigolint --version` works via `npx` from a packed tarball (`pnpm pack` in CI, install into temp dir, run).
+- Acceptance: CI green; `pnpm build` produces a single `dist/cli.mjs` under 200 kB.
+
+### M1 – Core: discovery, parser, repo index, AL001, AL002, pretty + json output (2 days)
+- Acceptance: fixtures for AL001 (12 cases incl. all exclusions listed in §6) and AL002 (8 cases) pass; running against the author's Fyndl repo reports the six missing gitnexus SKILL.md paths and zero false positives on `/health`, `/version`, `request.body`, `node .gitnexus/run.cjs analyze`, `.agents/skills/**` (glob that must be checked as glob).
+- Exit codes correct. `--format json` validated against a JSON schema in tests.
+
+### M2 – Rules AL003 to AL008, AL011, suppression, config (2 days)
+- Acceptance: each rule has >= 6 fixture cases (3 positive, 3 negative-looking-positive). Config loading with rule overrides tested. Inline suppression tested.
+- AL004 never prints a full secret (test asserts masking).
+
+### M3 – Remaining rules, sarif + github formats, `stats`, `rules`, `init` (1.5 days)
+- Acceptance: SARIF validated with the official schema in tests; `--format github` produces annotations visible in a real PR of the repo itself (dogfood workflow `.github/workflows/lint-instructions.yml`).
+
+### M4 – Polish for launch (2 days)
+- Perf test passes; install size measured in CI and printed.
+- README per LAUNCH.md checklist; `examples/broken-repo/` with a deliberately bad CLAUDE.md; `vhs` tape in `demo/demo.tape`; GIF committed.
+- `scripts/study.ts` for the "State of CLAUDE.md" study (clone 100 repos shallow, run lint, aggregate to `study/results.json` + markdown table).
+- `v0.1.0` tagged, `npm publish --provenance` via GitHub Actions on tag.
+
+## 12. Demo (vhs tape)
+
+```
+Output demo/demo.gif
+Set FontSize 16
+Set Width 1100
+Set Height 600
+Set Theme "Catppuccin Mocha"
+Type "npx amigolint" Sleep 500ms Enter
+Sleep 4s
+Type "npx amigolint stats" Sleep 500ms Enter
+Sleep 3s
+```
+
+Run inside `examples/broken-repo`.
+
+## 13. Roadmap after launch (for README)
+
+- v0.2: `--fix` for dead links and stale paths with a unique suggestion; exact tokenizer; `--watch`.
+- v0.3: `--ai` mode (optional, bring your own API key) for contradiction and vagueness with explanations; VS Code extension using the programmatic API.
+- v0.4: rule packs per agent, e.g. Claude-specific advice on `@import` structure.
