@@ -1,5 +1,6 @@
 import { existsSync } from 'node:fs';
 import path from 'node:path';
+import { GENERATED_DIRECTORY_NAMES } from '../path-ignore.js';
 import type { RepoIndex } from '../repo-index.js';
 import type { Doc, Span } from '../types.js';
 import { repoDefinesTypeScriptAliases } from '../typescript-alias.js';
@@ -20,10 +21,25 @@ const bareExtensionPattern = /^\.[A-Za-z0-9]+$/;
 const scopedPackagePrefixPattern = /^(@[\w.-]+)\//;
 const exactScopedPackageImportPattern = /^[\w-]+\/[\w.-]+$/;
 const typeScriptPathAliasPattern = /^[@~]\/.+/;
-const extensionlessSegmentPattern = /^[a-z0-9-]+$/;
+const extensionlessSegmentPattern = /^[a-z0-9-]+$/i;
 const windowsDrivePathPattern = /^[A-Za-z]:[\\/]/;
 const commonSourceRootPattern =
   /^(?:src|apps|packages|docs|test|tests|scripts|lib)\//;
+const placeholderBracePattern = /\{[^{},]*\}/;
+const commaBracePattern = /\{[^{}]*,[^{}]*\}/;
+const generatedDirectoryNames = new Set<string>(GENERATED_DIRECTORY_NAMES);
+const extensionProbeSuffixes = [
+  '.ts',
+  '.tsx',
+  '.js',
+  '.jsx',
+  '.mjs',
+  '.cjs',
+  '.mts',
+  '.cts',
+  '.py',
+  '.md',
+] as const;
 
 interface BasenameTrieNode {
   children: Map<string, BasenameTrieNode>;
@@ -63,7 +79,10 @@ const stalePath = {
       ) {
         continue;
       }
-      const candidate = normalizeCandidate(rawCandidate);
+      const candidate = normalizeImportedGlobMarker(
+        normalizeCandidate(rawCandidate),
+        context.repo,
+      );
       const { text } = candidate;
       const key = `${candidate.line}:${candidate.col}:${text}`;
       if (
@@ -75,7 +94,11 @@ const stalePath = {
       }
       seen.add(key);
 
-      if (shouldExclude(text) || isIgnored(text, context, ignoredPatterns)) {
+      if (
+        shouldExclude(text) ||
+        isGeneratedPathReference(text) ||
+        isIgnored(text, context, ignoredPatterns)
+      ) {
         continue;
       }
 
@@ -95,6 +118,27 @@ const stalePath = {
       }
 
       if (pathExists(text, context)) {
+        continue;
+      }
+
+      const directoryBasename = singleSegmentDirectoryBasename(text);
+      if (directoryBasename !== undefined) {
+        const otherDirectory = findDirectoryWithBasename(
+          directoryBasename,
+          text,
+          context.repo,
+        );
+        findings.push(
+          makeFinding(
+            candidate,
+            context.doc.path,
+            otherDirectory === undefined
+              ? `${quote(text)} does not exist`
+              : `${quote(text)} does not exist here; found at ${quote(otherDirectory)}`,
+            undefined,
+            otherDirectory === undefined ? undefined : 'info',
+          ),
+        );
         continue;
       }
 
@@ -126,6 +170,7 @@ const stalePath = {
           suggestion === undefined
             ? undefined
             : `Did you mean ${quote(suggestion)}?`,
+          isExplicitRelativeExtensionlessPath(text) ? 'info' : undefined,
         ),
       );
     }
@@ -292,6 +337,42 @@ function normalizeCandidate(candidate: Candidate): Candidate {
   };
 }
 
+function normalizeImportedGlobMarker(
+  candidate: Candidate,
+  repo: RepoIndex,
+): Candidate {
+  if (
+    candidate.source !== 'import' ||
+    !candidate.text.startsWith('@') ||
+    candidate.text.startsWith('@/') ||
+    !globCharacterPattern.test(candidate.text)
+  ) {
+    return candidate;
+  }
+
+  const withoutMarker = candidate.text.slice(1);
+  const firstSegment = withoutMarker.slice(
+    0,
+    withoutMarker.indexOf('/') < 0
+      ? withoutMarker.length
+      : withoutMarker.indexOf('/'),
+  );
+  if (getDirectoryNames(repo).has(`@${firstSegment}`)) {
+    return candidate;
+  }
+
+  const looksLocal =
+    !withoutMarker.includes('/') ||
+    firstSegment.startsWith('.') ||
+    globCharacterPattern.test(firstSegment) ||
+    commaBracePattern.test(withoutMarker) ||
+    commonSourceRootPattern.test(withoutMarker) ||
+    getDirectoryNames(repo).has(firstSegment);
+  return looksLocal
+    ? { ...candidate, text: withoutMarker, col: candidate.col + 1 }
+    : candidate;
+}
+
 function isPathLike(candidate: string): boolean {
   return (
     candidate.includes('/') ||
@@ -401,8 +482,17 @@ function containsPlaceholder(candidate: string): boolean {
     candidate.includes('<') ||
     candidate.includes('>') ||
     candidate.includes('{{') ||
-    candidate.includes('}}')
+    candidate.includes('}}') ||
+    candidate.includes('...') ||
+    placeholderBracePattern.test(candidate)
   );
+}
+
+function isGeneratedPathReference(candidate: string): boolean {
+  return candidate
+    .replaceAll('\\', '/')
+    .split('/')
+    .some((segment) => generatedDirectoryNames.has(segment));
 }
 
 function containsNonPathSyntax(candidate: string): boolean {
@@ -500,32 +590,64 @@ function pathExists(candidate: string, context: RuleContext): boolean {
     return existsSync(candidate);
   }
 
-  for (const resolved of resolutionCandidates(candidate, context.doc)) {
-    if (
-      context.repo.files.has(resolved) ||
-      context.repo.directories.has(resolved) ||
-      existsSync(path.resolve(context.repo.root, resolved))
-    ) {
-      return true;
-    }
+  const resolvedCandidates = resolutionCandidates(candidate, context.doc);
+  if (
+    resolvedCandidates.some((resolved) => resolvedPathExists(resolved, context))
+  ) {
+    return true;
+  }
+  if (isExplicitRelativeExtensionlessPath(candidate)) {
+    return resolvedCandidates.some((resolved) =>
+      extensionProbeSuffixes.some(
+        (suffix) =>
+          resolvedPathExists(`${resolved}${suffix}`, context) ||
+          resolvedPathExists(`${resolved}/index${suffix}`, context),
+      ),
+    );
   }
   return false;
+}
+
+function resolvedPathExists(resolved: string, context: RuleContext): boolean {
+  return (
+    context.repo.files.has(resolved) ||
+    context.repo.directories.has(resolved) ||
+    existsSync(path.resolve(context.repo.root, resolved))
+  );
+}
+
+function isExplicitRelativeExtensionlessPath(candidate: string): boolean {
+  return (
+    (candidate.startsWith('./') || candidate.startsWith('../')) &&
+    !candidate.endsWith('/') &&
+    !globCharacterPattern.test(candidate) &&
+    path.posix.extname(candidate) === ''
+  );
 }
 
 function globHasMatch(candidate: string, context: RuleContext): boolean {
   if (candidate.startsWith('~/')) {
     return false;
   }
-  return resolutionCandidates(candidate, context.doc).some(
+  const patterns = candidate.includes('/')
+    ? resolutionCandidates(candidate, context.doc)
+    : [`**/${candidate}`];
+  return patterns.some(
     (pattern) =>
       hasGlobMatch(context.repo.files, pattern) ||
-      hasGlobMatch(context.repo.directories, pattern),
+      hasGlobMatch(context.repo.directories, pattern, true),
   );
 }
 
-function hasGlobMatch(paths: ReadonlySet<string>, pattern: string): boolean {
+function hasGlobMatch(
+  paths: ReadonlySet<string>,
+  pattern: string,
+  directories = false,
+): boolean {
   for (const repoPath of paths) {
-    if (repoPath !== '.' && matchesGlob(repoPath, pattern)) {
+    const comparablePath =
+      directories && pattern.endsWith('/') ? `${repoPath}/` : repoPath;
+    if (repoPath !== '.' && matchesGlob(comparablePath, pattern)) {
       return true;
     }
   }
@@ -586,7 +708,12 @@ function findSuggestion(
   let best:
     | { path: string; basenameDistance: number; pathDistance: number }
     | undefined;
-  const similarBasenames = findSimilarBasenames(index, basename, 2);
+  const maximumDistance = basename.length <= 5 ? 1 : 2;
+  const similarBasenames = findSimilarBasenames(
+    index,
+    basename,
+    maximumDistance,
+  );
   let minimumBasenameDistance = Number.POSITIVE_INFINITY;
   for (const { distance } of similarBasenames) {
     minimumBasenameDistance = Math.min(minimumBasenameDistance, distance);
@@ -612,6 +739,30 @@ function findSuggestion(
   const suggestion = best?.path;
   index.suggestions.set(candidate, suggestion);
   return suggestion;
+}
+
+function singleSegmentDirectoryBasename(candidate: string): string | undefined {
+  if (
+    !candidate.endsWith('/') ||
+    candidate.indexOf('/') !== candidate.length - 1
+  ) {
+    return undefined;
+  }
+  const basename = candidate.slice(0, -1);
+  return basename === '' || globCharacterPattern.test(basename)
+    ? undefined
+    : basename;
+}
+
+function findDirectoryWithBasename(
+  basename: string,
+  candidate: string,
+  repo: RepoIndex,
+): string | undefined {
+  const directories = (
+    getSuggestionIndex(repo).byBasename.get(basename) ?? []
+  ).filter((repoPath) => repo.directories.has(repoPath));
+  return closestPath(directories, candidate);
 }
 
 function getSuggestionIndex(repo: RepoIndex): SuggestionIndex {

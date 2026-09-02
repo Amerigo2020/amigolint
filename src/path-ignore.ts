@@ -3,10 +3,15 @@ export const GENERATED_DIRECTORY_NAMES = [
   '.next',
   'dist',
   'build',
+  'out',
+  'target',
   'coverage',
   'node_modules',
   '.turbo',
   '.cache',
+  '__pycache__',
+  '.venv',
+  'venv',
   'vendor',
 ] as const;
 

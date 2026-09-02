@@ -17,10 +17,15 @@ const generatedDirectories = [
   '.next',
   'dist',
   'build',
+  'out',
+  'target',
   'coverage',
   'node_modules',
   '.turbo',
   '.cache',
+  '__pycache__',
+  '.venv',
+  'venv',
   'vendor',
 ] as const;
 

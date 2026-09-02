@@ -37,7 +37,7 @@ Hard rule: install size under 2 MB, cold `npx amigolint` under 5 s on a 10k-file
 
 ## 4. Discovery: which files are linted
 
-Default targets, searched from repo root (root = nearest ancestor with `.git`, else cwd), excluding `node_modules`, `.git`, `dist`, `build`, `.next`, `coverage`, `vendor`, and anything in `.gitignore` (use `git ls-files --cached --others --exclude-standard` when git is available, fallback to tinyglobby with a static ignore list):
+Default targets are searched from the repo root (the nearest ancestor with `.git`, else cwd). Exclude `.git`, dependency/output/cache/virtual-environment directories (`node_modules`, `vendor`, `dist`, `build`, `out`, `target`, `coverage`, `.next`, `.turbo`, `.cache`, `__pycache__`, `.venv`, `venv`), and anything in `.gitignore` (use `git ls-files --cached --others --exclude-standard` when Git is available, with a tinyglobby static-ignore fallback):
 
 | Agent | Files | Auto-loaded by agent? |
 |-------|-------|------------------------|
@@ -113,20 +113,21 @@ Detect references to files or directories that do not exist.
 
 Candidates from inline code spans and `@imports` contain a `/` or end with a known extension (`.ts .tsx .js .mjs .cjs .json .md .mdx .yml .yaml .toml .py .go .rs .rb .sh .sql .prisma .env .css .scss .html .txt .lock .csv`). Bare tokens in prose are candidates only when they contain a `/` and either start with `./`, `../`, `~/`, or a dot-directory; their first segment is an existing top-level repository file or directory; or they start with a common source root (`src/`, `apps/`, `packages/`, `docs/`, `test/`, `tests/`, `scripts/`, `lib/`). Bare filenames without a slash are not prose candidates.
 
-Exclude a candidate when it:
-- contains `://` or starts with `www.` (URL)
-- contains `:` unless it is a Windows drive path (`C:\...` or `C:/...`)
-- starts with `-` (CLI flag) or contains whitespace (command)
-- contains `<`, `>`, `{{`, or `}}` (placeholder)
-- is a slash-separated token with a purely numeric segment, such as `w-1/2`, or an inline token whose segments all match `^[a-z0-9-]+$`, whose first segment is not a top-level repository entry, and which has no explicit relative or dot prefix
-- is an npm package subpath whose package prefix is declared in any repository `package.json` dependency table or installed under a repository `node_modules`
-- contains a bracket group matching `^\[[\w.%-]+\]$` (CSS arbitrary-value class), unless the token ends in a known file extension; otherwise glob characters `* ? { [` are matched against both files and directories in the repo index and reported only when they match neither (message: "glob matches no files")
-- is an absolute path that does not have a file extension (`/health`, `/api/users`): treat as URL route, skip
-- is a known non-path: `package.json` keys like `request.body`, `process.env.X`, `foo.bar()` (contains `(`), versions like `1.2.3`, domain-like `foo.com`
-- resolves to an existing path relative to (a) the doc's directory, (b) repo root, (c) `$HOME` when starting with `~`; references in `SKILL.md` also resolve against every parent of the skill directory through the repo root
-- is listed in config `stalePath.ignore` (globs)
+Exclusions (precision-first):
+- URLs and extensionless absolute routes; domains, versions, flags and commands, property or method syntax, quoted/assignment syntax, and bare extension mentions
+- angle-bracket or Mustache placeholders, tokens containing an ellipsis (`...`), and brace groups without a comma (including `{...}`); comma groups such as `{a,b}` remain globs
+- CSS arbitrary values, empty bracket syntax, numeric path segments, and inline extensionless slash phrases whose segments are plain `^[a-z0-9-]+$` words (case-insensitive), unless explicitly relative or rooted at an indexed top-level entry
+- npm dependency subpaths, package-shaped scoped references whose scope is not an indexed directory, and `@/` or `~/` aliases when a repository tsconfig defines TypeScript aliases
+- tokens containing an index-excluded directory segment: `node_modules`, `vendor`, `dist`, `build`, `out`, `target`, `coverage`, `.next`, `.turbo`, `.cache`, `__pycache__`, `.venv`, or `venv`
+- paths ignored by `stalePath.ignore`, bare inline filenames found by basename elsewhere in the repository, or paths resolving from the document directory, repository root, `$HOME` for `~/`, or (for `SKILL.md`) a parent of the skill directory
 
-Suggestion: for inline code and `@imports`, prefer the same basename in another directory, breaking ties by the smallest full-path Levenshtein distance. Otherwise fuzzy match the basename against the repo index only when the candidate basename has at least four characters and the basename Levenshtein distance is <= 2. At most one suggestion. Prose findings do not receive suggestions.
+Glob characters are `*`, `?`, `[`, and comma-bearing brace groups. A glob without a slash is matched as `**/<glob>` at every depth; a glob with a slash is matched as written relative to both the document directory and repository root. Match against files and directories and report "glob matches no files" only when neither matches.
+
+For an extensionless path beginning with `./` or `../`, also probe `.ts .tsx .js .jsx .mjs .cjs .mts .cts .py .md` and `/index.<ext>`. If none resolves, report it as `info`.
+
+For a missing single-segment directory reference such as `core/`, do not use fuzzy suggestions. If the same directory basename exists elsewhere, report `info` with "`core/` does not exist here; found at `front_end/core`"; otherwise retain the normal severity and "does not exist" message.
+
+Suggestion: for inline code and `@imports`, prefer the same basename in another directory, breaking ties by the smallest full-path Levenshtein distance. Otherwise fuzzy match basenames of at least four characters, with maximum distance 1 for basenames of five characters or fewer and 2 for longer basenames. Single-segment directory references use the special handling above. At most one suggestion. Prose findings do not receive suggestions.
 
 Severity note: candidates from prose (not inline code) are reported as `warn`, not `error`, because false positives are more likely there. A missing bare filename in inline code is first searched by basename across the repository, then reported as `warn` with "does not exist anywhere in the repo" because its intended location is ambiguous.
 

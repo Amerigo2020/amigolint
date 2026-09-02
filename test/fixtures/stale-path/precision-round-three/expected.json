@@ -1,0 +1,102 @@
+[
+  {
+    "file": "guide/AGENTS.md",
+    "line": 7,
+    "col": 27,
+    "severity": "error",
+    "message": "`skills/{alpha,beta}/SKILL.md` glob matches no files"
+  },
+  {
+    "file": "guide/AGENTS.md",
+    "line": 15,
+    "col": 34,
+    "severity": "info",
+    "message": "`../MissingComponent` does not exist"
+  },
+  {
+    "file": "guide/AGENTS.md",
+    "line": 15,
+    "col": 56,
+    "severity": "info",
+    "message": "`./MissingLocalComponent` does not exist"
+  },
+  {
+    "file": "guide/AGENTS.md",
+    "line": 16,
+    "col": 33,
+    "severity": "info",
+    "message": "`core/` does not exist here; found at `front_end/core`"
+  },
+  {
+    "file": "guide/AGENTS.md",
+    "line": 16,
+    "col": 41,
+    "severity": "info",
+    "message": "`models/` does not exist here; found at `back_end/models`"
+  },
+  {
+    "file": "guide/AGENTS.md",
+    "line": 16,
+    "col": 51,
+    "severity": "info",
+    "message": "`src/` does not exist here; found at `packages/app/src`"
+  },
+  {
+    "file": "guide/AGENTS.md",
+    "line": 16,
+    "col": 58,
+    "severity": "info",
+    "message": "`__tests__/` does not exist here; found at `spec/__tests__`"
+  },
+  {
+    "file": "guide/AGENTS.md",
+    "line": 17,
+    "col": 30,
+    "severity": "error",
+    "message": "`docs/` does not exist"
+  },
+  {
+    "file": "guide/AGENTS.md",
+    "line": 18,
+    "col": 28,
+    "severity": "error",
+    "message": "`code/abcd` does not exist"
+  },
+  {
+    "file": "guide/AGENTS.md",
+    "line": 19,
+    "col": 28,
+    "severity": "error",
+    "message": "`code/abxz` does not exist",
+    "suggestion": "Did you mean `library/abxy`?"
+  },
+  {
+    "file": "guide/AGENTS.md",
+    "line": 20,
+    "col": 27,
+    "severity": "error",
+    "message": "`code/compnentx` does not exist",
+    "suggestion": "Did you mean `library/component`?"
+  },
+  {
+    "file": "guide/CLAUDE.md",
+    "line": 6,
+    "col": 29,
+    "severity": "error",
+    "message": "`missing/{alpha,beta}/SKILL.md` glob matches no files"
+  },
+  {
+    "file": "guide/CLAUDE.md",
+    "line": 8,
+    "col": 27,
+    "severity": "error",
+    "message": "`no-match-*.ts` glob matches no files"
+  },
+  {
+    "file": "guide/CLAUDE.md",
+    "line": 10,
+    "col": 29,
+    "severity": "error",
+    "message": "`docs/**` glob matches no files"
+  }
+]

@@ -15,6 +15,10 @@ const noDependencyFixtureDir = path.join(fixtureDir, 'no-dependency');
 const edgeCasesFixtureDir = path.join(fixtureDir, 'edge-cases');
 const pathsAliasFixtureDir = path.join(fixtureDir, 'paths-alias');
 const baseUrlAliasFixtureDir = path.join(fixtureDir, 'base-url-alias');
+const precisionRoundThreeFixtureDir = path.join(
+  fixtureDir,
+  'precision-round-three',
+);
 const temporaryDirectories: string[] = [];
 
 afterEach(async () => {
@@ -111,6 +115,7 @@ describe('AL001 stale-path', () => {
       'w-1/2',
       '50/50',
       'text-7xl/text-8xl',
+      'CI/CD',
       'shadcn/ui',
       'motion/react',
       'next/font',
@@ -134,9 +139,6 @@ describe('AL001 stale-path', () => {
       ).toBe(false);
     }
 
-    expect(
-      findings.find(({ message }) => message === '`CI/CD` does not exist'),
-    ).not.toHaveProperty('suggestion');
     const appProseFinding = findings.find(
       ({ message }) => message === '`apps/web/app/missing.tsx` does not exist',
     );
@@ -270,6 +272,37 @@ describe('AL001 stale-path', () => {
           col,
           severity,
           message,
+        })),
+    ).toEqual(expected);
+  });
+
+  it('handles third-round generated paths, placeholders, globs, extension probes, directories, and fuzzy matches', async () => {
+    const root = path.join(precisionRoundThreeFixtureDir, 'repo');
+    const docs = await Promise.all(
+      ['guide/AGENTS.md', 'guide/CLAUDE.md'].map(async (docPath) =>
+        parseDoc(docPath, await readFile(path.join(root, docPath), 'utf8')),
+      ),
+    );
+    const expected = JSON.parse(
+      await readFile(
+        path.join(precisionRoundThreeFixtureDir, 'expected.json'),
+        'utf8',
+      ),
+    ) as Array<Record<string, unknown>>;
+    const repo = await buildRepoIndex(root);
+
+    expect(
+      docs
+        .flatMap((doc) =>
+          stalePath.check({ doc, allDocs: docs, repo, options: {} }),
+        )
+        .map(({ file, line, col, severity, message, suggestion }) => ({
+          file,
+          line,
+          col,
+          severity,
+          message,
+          ...(suggestion === undefined ? {} : { suggestion }),
         })),
     ).toEqual(expected);
   });

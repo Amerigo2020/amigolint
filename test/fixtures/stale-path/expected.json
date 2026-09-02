@@ -73,13 +73,6 @@
   },
   {
     "file": "AGENTS.md",
-    "line": 36,
-    "col": 18,
-    "severity": "error",
-    "message": "`CI/CD` does not exist"
-  },
-  {
-    "file": "AGENTS.md",
     "line": 37,
     "col": 18,
     "severity": "error",
