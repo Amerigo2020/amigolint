@@ -15,6 +15,13 @@ const DEPENDENCY_TABLES = [
   'peerDependencies',
   'optionalDependencies',
 ] as const;
+const VENDORED_SCOPED_PACKAGE_GLOBS = [
+  '**/vendor/**/@*',
+  '**/vendor/**/@*/**',
+] as const;
+const vendoredScopedPackageIgnoreGlobs = REPOSITORY_IGNORE_GLOBS.filter(
+  (pattern) => !pattern.includes('vendor'),
+);
 
 export interface PackageScripts {
   /** The package directory, relative to the repo root, or `.` for the root. */
@@ -29,6 +36,9 @@ export interface RepoIndex {
   root: string;
   files: Set<string>;
   directories: Set<string>;
+  /** Scoped paths used only to resolve local `@scope/*` references. */
+  scopedPackageFiles: Set<string>;
+  scopedPackageDirectories: Set<string>;
   /** Root plus declared workspace packages, eligible for workspace-wide scripts. */
   packages: PackageScripts[];
   /** Every valid package.json, used only when walking up from a document. */
@@ -81,7 +91,12 @@ export function buildRepoIndex(
 }
 
 async function buildUncachedRepoIndex(root: string): Promise<RepoIndex> {
-  const [filePaths, directoryPaths] = await Promise.all([
+  const [
+    filePaths,
+    directoryPaths,
+    vendoredScopedPackageFilePaths,
+    vendoredScopedPackageDirectoryPaths,
+  ] = await Promise.all([
     glob('**/*', {
       cwd: root,
       dot: true,
@@ -96,6 +111,20 @@ async function buildUncachedRepoIndex(root: string): Promise<RepoIndex> {
       ignore: REPOSITORY_IGNORE_GLOBS,
       onlyDirectories: true,
     }),
+    glob(VENDORED_SCOPED_PACKAGE_GLOBS, {
+      cwd: root,
+      dot: true,
+      followSymbolicLinks: false,
+      ignore: vendoredScopedPackageIgnoreGlobs,
+      onlyFiles: true,
+    }),
+    glob(VENDORED_SCOPED_PACKAGE_GLOBS, {
+      cwd: root,
+      dot: true,
+      followSymbolicLinks: false,
+      ignore: vendoredScopedPackageIgnoreGlobs,
+      onlyDirectories: true,
+    }),
   ]);
 
   const files = new Set(
@@ -108,6 +137,18 @@ async function buildUncachedRepoIndex(root: string): Promise<RepoIndex> {
     ...directoryPaths
       .map(toPosixPath)
       .filter((entry) => !isRepositoryIgnoredPath(entry)),
+  ]);
+  const scopedPackageFiles = new Set([
+    ...[...files].filter(hasScopedPackageSegment),
+    ...vendoredScopedPackageFilePaths
+      .map(toPosixPath)
+      .filter(hasScopedPackageSegment),
+  ]);
+  const scopedPackageDirectories = new Set([
+    ...[...directories].filter(hasScopedPackageSegment),
+    ...vendoredScopedPackageDirectoryPaths
+      .map(toPosixPath)
+      .filter(hasScopedPackageSegment),
   ]);
   const { packages, allPackages, declaredDependencies } = await loadPackages(
     root,
@@ -135,6 +176,8 @@ async function buildUncachedRepoIndex(root: string): Promise<RepoIndex> {
     root,
     files,
     directories,
+    scopedPackageFiles,
+    scopedPackageDirectories,
     packages,
     allPackages,
     dependencies,
@@ -586,4 +629,8 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 function toPosixPath(filePath: string): string {
   const normalized = filePath.split(path.sep).join('/').replace(/\/+$/, '');
   return normalized || '.';
+}
+
+function hasScopedPackageSegment(repoPath: string): boolean {
+  return repoPath.split('/').some((segment) => /^@[\w.-]+$/.test(segment));
 }

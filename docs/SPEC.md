@@ -39,6 +39,10 @@ Hard rule: install size under 2 MB, cold `npx amigolint` under 5 s on a 10k-file
 
 Default targets are searched from the repo root (the nearest ancestor with `.git`, else cwd). Exclude `.git`, dependency/output/cache/virtual-environment directories (`node_modules`, `vendor`, `dist`, `build`, `out`, `target`, `coverage`, `.next`, `.turbo`, `.cache`, `__pycache__`, `.venv`, `venv`), and anything in `.gitignore` (use `git ls-files --cached --others --exclude-standard` when Git is available, with a tinyglobby static-ignore fallback):
 
+AL001 may keep an auxiliary view of `@scope` subtrees under `vendor` solely to
+disambiguate scoped-package path references. These entries never become lint
+targets or general file/directory-index entries and cannot provide suggestions.
+
 | Agent | Files | Auto-loaded by agent? |
 |-------|-------|------------------------|
 | Claude Code | `CLAUDE.md`, `CLAUDE.local.md`, `**/CLAUDE.md`, `.claude/CLAUDE.md`, `.claude/skills/*/SKILL.md`, `.claude/agents/*.md`, `.claude/commands/*.md` | root always; nested by location; skills, agents, and commands lazily |
@@ -119,7 +123,8 @@ Exclusions (precision-first):
 - tokens containing single or double quotes, including quoted bracket access such as `metadata.annotations['name']`
 - CSS arbitrary values, empty bracket syntax, numeric path segments, and inline extensionless slash phrases whose segments are plain `^[a-z0-9-]+$` words (case-insensitive), unless explicitly relative or rooted at an indexed top-level entry
 - slash-free wildcard property paths containing `.*` or `*.` when every non-wildcard dot-separated segment is identifier-like and the token has no known file extension; extension-bearing patterns such as `*.json`, `*.test.ts`, and `*.showcase.js` remain globs
-- scoped package tokens (`@scope/...`), including glob forms, unless a directory literally named for the scope exists in the repository
+- slash-free Go pointer and slice-pointer type tokens beginning with `*` followed by an optional `[]` and dot-separated, letter-led identifiers, when the token has no known file extension
+- scoped package tokens (`@scope/...`), including glob forms, unless a directory literally named for the scope exists in the repository; local scoped tokens resolve at any depth, and a missing token under a nested scope is `info` pointing to that scope only when it contains another package directory, otherwise it is skipped
 - bare alias prefixes `@/`, `~/`, `./`, and `../` with no path after the prefix
 - npm dependency subpaths and `@/` or `~/` aliases when a repository tsconfig defines TypeScript aliases
 - tokens containing an index-excluded directory segment: `node_modules`, `vendor`, `dist`, `build`, `out`, `target`, `coverage`, `.next`, `.turbo`, `.cache`, `__pycache__`, `.venv`, or `venv`
@@ -128,7 +133,7 @@ Exclusions (precision-first):
 - Leading-slash candidates resolve from the repository root first, then as absolute filesystem paths; report only when both miss
 - For a missing candidate with at least two segments, a segment-aligned repository suffix match is `info`: "`src/HIR/` does not exist here; found at `compiler/packages/babel-plugin-react-compiler/src/HIR`"; prefer the shortest path and index lazily by final segment
 
-Glob characters are `*`, `?`, `[`, and comma-bearing brace groups. A glob without a slash is matched as `**/<glob>` at every depth; a glob with a slash is matched as written relative to both the document directory and repository root. Match against files and directories and report "glob matches no files" only when neither matches.
+Glob characters are `*`, `?`, `[`, and comma-bearing brace groups. A glob without a slash is matched as `**/<glob>` at every depth; a glob with a slash is matched as written relative to both the document directory and repository root. Scoped-package paths and globs are always matched as `**/<token>`. Match against files and directories and report "glob matches no files" only when neither matches.
 
 For an extensionless path beginning with `./` or `../`, also probe `.ts .tsx .js .jsx .mjs .cjs .mts .cts .py .md` and `/index.<ext>`. If none resolves, report it as `info`.
 

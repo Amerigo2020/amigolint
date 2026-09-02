@@ -27,6 +27,10 @@ const precisionRoundFiveFixtureDir = path.join(
   fixtureDir,
   'precision-round-five',
 );
+const precisionRoundSixFixtureDir = path.join(
+  fixtureDir,
+  'precision-round-six',
+);
 const temporaryDirectories: string[] = [];
 
 afterEach(async () => {
@@ -371,6 +375,40 @@ describe('AL001 stale-path', () => {
     ) as Array<Record<string, unknown>>;
     const doc = parseDoc(docPath, raw);
     const repo = await buildRepoIndex(root);
+
+    expect(
+      stalePath
+        .check({ doc, allDocs: [doc], repo, options: {} })
+        .map(({ file, line, col, severity, message }) => ({
+          file,
+          line,
+          col,
+          severity,
+          message,
+        })),
+    ).toEqual(expected);
+  });
+
+  it('resolves nested scoped paths at any depth and skips Go pointer types', async () => {
+    const root = path.join(precisionRoundSixFixtureDir, 'repo');
+    const docPath = '.github/copilot-instructions.md';
+    const raw = await readFile(path.join(root, docPath), 'utf8');
+    const expected = JSON.parse(
+      await readFile(
+        path.join(precisionRoundSixFixtureDir, 'expected.json'),
+        'utf8',
+      ),
+    ) as Array<Record<string, unknown>>;
+    const doc = parseDoc(docPath, raw);
+    const repo = await buildRepoIndex(root);
+
+    expect(repo.files.has('vendor/@std/path/mod.ts')).toBe(false);
+    expect(repo.directories.has('vendor/@std/path')).toBe(false);
+    expect(repo.scopedPackageFiles.has('vendor/@std/path/mod.ts')).toBe(true);
+    expect(repo.scopedPackageDirectories.has('vendor/@std/path')).toBe(true);
+    expect(
+      repo.scopedPackageFiles.has('vendor/registry/@nested/path/mod.ts'),
+    ).toBe(true);
 
     expect(
       stalePath

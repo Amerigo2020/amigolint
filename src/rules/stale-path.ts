@@ -23,6 +23,8 @@ const exactScopedPackageImportPattern = /^[\w-]+\/[\w.-]+$/;
 const typeScriptPathAliasPattern = /^[@~]\/.+/;
 const extensionlessSegmentPattern = /^[a-z0-9-]+$/i;
 const identifierLikeSegmentPattern = /^[A-Za-z_$][\w$]*$/;
+const goPointerTypePattern =
+  /^\*(?:\[\])?[A-Za-z][A-Za-z0-9_]*(?:\.[A-Za-z][A-Za-z0-9_]*)*$/;
 const bareAliasPrefixes = new Set(['@/', '~/', './', '../']);
 const windowsDrivePathPattern = /^[A-Za-z]:[\\/]/;
 const commonSourceRootPattern =
@@ -56,6 +58,10 @@ interface SuggestionIndex {
 
 const suggestionIndexes = new WeakMap<RepoIndex, SuggestionIndex>();
 const directoryNameIndexes = new WeakMap<RepoIndex, Set<string>>();
+const scopedPackageRootIndexes = new WeakMap<
+  RepoIndex,
+  Map<string, string[]>
+>();
 const pathSuffixIndexes = new WeakMap<RepoIndex, Map<string, string[]>>();
 
 interface Candidate {
@@ -104,6 +110,35 @@ const stalePath = {
         isIgnored(text, context, ignoredPatterns)
       ) {
         continue;
+      }
+
+      const scope = getScopedPackageScope(text);
+      if (scope !== undefined) {
+        if (scopedPackageHasMatch(text, context.repo)) {
+          continue;
+        }
+        const scopeRoots = getScopedPackageRoots(scope, context.repo);
+        if (
+          !scopeRoots.some((scopeRoot) =>
+            isDirectScopeRoot(scopeRoot, scope, context.doc),
+          )
+        ) {
+          const relocatedScope = scopeRoots.find((scopeRoot) =>
+            hasScopedPackageSibling(scopeRoot, context.repo),
+          );
+          if (relocatedScope !== undefined) {
+            findings.push(
+              makeFinding(
+                candidate,
+                context.doc.path,
+                `${quote(text)} does not exist here; found at ${quote(relocatedScope)}`,
+                undefined,
+                'info',
+              ),
+            );
+          }
+          continue;
+        }
       }
 
       if (globCharacterPattern.test(text)) {
@@ -379,7 +414,7 @@ function normalizeImportedGlobMarker(
       ? withoutMarker.length
       : withoutMarker.indexOf('/'),
   );
-  if (getDirectoryNames(repo).has(`@${firstSegment}`)) {
+  if (getScopedPackageRoots(`@${firstSegment}`, repo).length > 0) {
     return candidate;
   }
 
@@ -406,7 +441,8 @@ function isPathLike(candidate: string): boolean {
 function isCandidate(candidate: Candidate, repo: RepoIndex): boolean {
   if (
     isBareAliasPrefix(candidate.text) ||
-    isPropertyPathWildcard(candidate.text)
+    isPropertyPathWildcard(candidate.text) ||
+    isGoPointerType(candidate.text)
   ) {
     return false;
   }
@@ -434,6 +470,14 @@ function isCandidate(candidate: Candidate, repo: RepoIndex): boolean {
 
 function isBareAliasPrefix(candidate: string): boolean {
   return bareAliasPrefixes.has(candidate);
+}
+
+function isGoPointerType(candidate: string): boolean {
+  return (
+    !candidate.includes('/') &&
+    !knownExtension.test(candidate) &&
+    goPointerTypePattern.test(candidate)
+  );
 }
 
 function isPropertyPathWildcard(candidate: string): boolean {
@@ -522,8 +566,61 @@ function isDependencySubpath(candidate: string, repo: RepoIndex): boolean {
 }
 
 function isScopedPackageReference(candidate: string, repo: RepoIndex): boolean {
-  const scope = scopedPackagePrefixPattern.exec(candidate)?.[1];
-  return scope !== undefined && !getDirectoryNames(repo).has(scope);
+  const scope = getScopedPackageScope(candidate);
+  return scope !== undefined && getScopedPackageRoots(scope, repo).length === 0;
+}
+
+function getScopedPackageScope(candidate: string): string | undefined {
+  return scopedPackagePrefixPattern.exec(candidate)?.[1];
+}
+
+function getScopedPackageRoots(scope: string, repo: RepoIndex): string[] {
+  const cached = scopedPackageRootIndexes.get(repo);
+  if (cached !== undefined) {
+    return cached.get(scope) ?? [];
+  }
+
+  const rootsByScope = new Map<string, string[]>();
+  for (const directory of repo.scopedPackageDirectories) {
+    const directoryScope = path.posix.basename(directory);
+    if (!/^@[\w.-]+$/.test(directoryScope)) {
+      continue;
+    }
+    const roots = rootsByScope.get(directoryScope) ?? [];
+    roots.push(directory);
+    rootsByScope.set(directoryScope, roots);
+  }
+  for (const roots of rootsByScope.values()) {
+    roots.sort(
+      (left, right) => left.length - right.length || left.localeCompare(right),
+    );
+  }
+  scopedPackageRootIndexes.set(repo, rootsByScope);
+  return rootsByScope.get(scope) ?? [];
+}
+
+function scopedPackageHasMatch(candidate: string, repo: RepoIndex): boolean {
+  const pattern = `**/${candidate}`;
+  return (
+    hasGlobMatch(repo.scopedPackageFiles, pattern) ||
+    hasGlobMatch(repo.scopedPackageDirectories, pattern, true)
+  );
+}
+
+function isDirectScopeRoot(
+  scopeRoot: string,
+  scope: string,
+  doc: Doc,
+): boolean {
+  return resolutionCandidates(scope, doc).includes(scopeRoot);
+}
+
+function hasScopedPackageSibling(scopeRoot: string, repo: RepoIndex): boolean {
+  return [...repo.scopedPackageDirectories].some(
+    (directory) =>
+      path.posix.dirname(directory) === scopeRoot &&
+      !path.posix.basename(directory).startsWith('.'),
+  );
 }
 
 function getDirectoryNames(repo: RepoIndex): Set<string> {

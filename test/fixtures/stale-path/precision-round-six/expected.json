@@ -1,0 +1,9 @@
+[
+  {
+    "file": ".github/copilot-instructions.md",
+    "line": 3,
+    "col": 39,
+    "severity": "info",
+    "message": "`@std/missing` does not exist here; found at `vendor/@std`"
+  }
+]
