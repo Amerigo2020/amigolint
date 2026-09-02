@@ -28,6 +28,21 @@ amigolint checks the repository itself, needs no configuration or LLM, and
 supports CLAUDE.md, AGENTS.md, Cursor rules, Copilot instructions, Gemini CLI,
 Windsurf, Cline, and Roo files. Output stays deterministic for local use and CI.
 
+## State of agent instructions
+
+We ran amigolint on the 100 most-starred public repositories that ship a
+`CLAUDE.md` or `AGENTS.md` (every one above 62k stars, sampled 2026-09-02):
+
+| Metric | Result |
+| --- | ---: |
+| Repositories with at least one error | 73% |
+| Repositories with stale-path errors (files that no longer exist) | 66% |
+| Repositories with stale-script errors (`npm run`, `make`, `just` targets that no longer exist) | 38% |
+| Median approximate tokens of instructions per repository | ≈7.3k |
+
+Raw numbers and the repository list live in [`study/`](study/RESULTS.md);
+`pnpm study` reproduces the run.
+
 ## Quick start
 
 Node.js 20 or newer is required. Run without installing:
