@@ -19,12 +19,30 @@ export const ruleConfigurationSchema = z.union([
   severitySchema,
   z.tuple([severitySchema, z.record(z.string(), z.unknown())]),
 ]);
+const crossFileModeSchema = z.enum(['auto', 'all', 'none']).optional().meta({
+  default: 'auto',
+  description:
+    'Compare instructions in automatically loaded groups, all files, or only the current file',
+});
+const comparisonRuleOptionsSchema = z
+  .object({ crossFile: crossFileModeSchema })
+  .catchall(z.unknown());
+const comparisonRuleConfigurationSchema = z.union([
+  severitySchema,
+  z.tuple([severitySchema, comparisonRuleOptionsSchema]),
+]);
+const rulesSchema = z
+  .object({
+    'duplicate-rule': comparisonRuleConfigurationSchema.optional(),
+    contradiction: comparisonRuleConfigurationSchema.optional(),
+  })
+  .catchall(ruleConfigurationSchema);
 export const configSchema = z
   .object({
     $schema: z.string().optional(),
     include: z.array(z.string()).optional(),
     exclude: z.array(z.string()).optional(),
-    rules: z.record(z.string(), ruleConfigurationSchema).optional(),
+    rules: rulesSchema.optional(),
     checkUrls: z.boolean().optional(),
   })
   .strict();
@@ -142,8 +160,7 @@ export function generateConfigJsonSchema(): Record<string, unknown> {
     target: 'draft-2020-12',
     unrepresentable: 'any',
   });
-  const tupleBranch = findRuleTupleBranch(generated);
-  if (tupleBranch !== undefined) {
+  for (const tupleBranch of findRuleTupleBranches(generated)) {
     tupleBranch.minItems = 2;
     tupleBranch.maxItems = 2;
     tupleBranch.items = false;
@@ -157,26 +174,43 @@ export function generateConfigJsonSchema(): Record<string, unknown> {
   };
 }
 
-function findRuleTupleBranch(
+function findRuleTupleBranches(
   schema: Record<string, unknown>,
-): Record<string, unknown> | undefined {
+): Record<string, unknown>[] {
   const properties = isRecord(schema.properties)
     ? schema.properties
     : undefined;
   const rules =
     properties && isRecord(properties.rules) ? properties.rules : undefined;
+  if (!rules) {
+    return [];
+  }
+  const configurations: Record<string, unknown>[] = [];
   const additionalProperties =
     rules && isRecord(rules.additionalProperties)
       ? rules.additionalProperties
       : undefined;
-  const alternatives = additionalProperties?.anyOf;
-  if (!Array.isArray(alternatives)) {
-    return undefined;
+  if (additionalProperties) {
+    configurations.push(additionalProperties);
   }
-  return alternatives.find(
-    (alternative): alternative is Record<string, unknown> =>
-      isRecord(alternative) && alternative.type === 'array',
-  );
+  if (isRecord(rules.properties)) {
+    for (const configuration of Object.values(rules.properties)) {
+      if (isRecord(configuration)) {
+        configurations.push(configuration);
+      }
+    }
+  }
+
+  return configurations.flatMap((configuration) => {
+    const alternatives = configuration.anyOf;
+    if (!Array.isArray(alternatives)) {
+      return [];
+    }
+    return alternatives.filter(
+      (alternative): alternative is Record<string, unknown> =>
+        isRecord(alternative) && alternative.type === 'array',
+    );
+  });
 }
 
 export function mergeConfig(config: Partial<LintConfig> = {}): LintConfig {

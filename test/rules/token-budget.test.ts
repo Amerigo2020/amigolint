@@ -2,11 +2,10 @@ import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
+import { isAutoLoadedAtStart } from '../../src/doc-groups.js';
 import { parseDoc } from '../../src/parse.js';
 import { buildRepoIndex } from '../../src/repo-index.js';
-import tokenBudget, {
-  isAutoLoadedAtStart,
-} from '../../src/rules/token-budget.js';
+import tokenBudget from '../../src/rules/token-budget.js';
 
 const fixtureDir = fileURLToPath(
   new URL('../fixtures/token-budget/', import.meta.url),
@@ -137,7 +136,7 @@ describe('AL005 token-budget', () => {
       'Copilot scoped instructions',
       '.github/instructions/source.instructions.md',
       '---\napplyTo: "src/**"\n---',
-      true,
+      false,
     ],
     ['Gemini instructions', 'GEMINI.md', '# Rules', true],
     ['Windsurf root rules', '.windsurfrules', '# Rules', true],

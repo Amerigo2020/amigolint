@@ -35,47 +35,9 @@ const setextHeadingPattern = /^ {0,3}(=+|-+)[ \t]*$/;
 const angleLinkPattern = /<([^<>\s]+)>/g;
 const bareUrlPattern = /(?:https?:\/\/|ftp:\/\/|www\.)[^\s<>"']+/gi;
 const importPattern = /(^|\s)@([^\s`<>"'()]+)/g;
-const htmlTagNames = new Set([
-  'a',
-  'article',
-  'aside',
-  'blockquote',
-  'body',
-  'br',
-  'code',
-  'details',
-  'div',
-  'em',
-  'footer',
-  'h1',
-  'h2',
-  'h3',
-  'h4',
-  'h5',
-  'h6',
-  'head',
-  'header',
-  'hr',
-  'html',
-  'img',
-  'li',
-  'main',
-  'nav',
-  'ol',
-  'p',
-  'pre',
-  'section',
-  'span',
-  'strong',
-  'summary',
-  'table',
-  'tbody',
-  'td',
-  'th',
-  'thead',
-  'tr',
-  'ul',
-]);
+const absoluteUriPattern = /^[a-zA-Z][a-zA-Z0-9+.-]*:/;
+const emailAddressPattern = /^[^@\s<>]+@[^@\s<>]+\.[^@\s<>]+$/;
+const anglePlaceholderPattern = /^(?:\.{3}|[a-zA-Z][a-zA-Z0-9_-]*\\?)$/;
 
 export function detectAgent(filePath: string): AgentKind {
   const path = normalizeDocPath(filePath);
@@ -415,11 +377,12 @@ function findLinks(
     if (start === undefined || rawMatch === undefined || target === undefined) {
       continue;
     }
-    if (isNonLinkAngleTarget(target)) {
-      continue;
-    }
     const end = start + rawMatch.length;
     if (overlaps(start, end, occupied)) {
+      continue;
+    }
+    if (isEscapedAt(text, start) || !isAutolinkTarget(target)) {
+      occupied.push({ start, end });
       continue;
     }
     found.push({
@@ -453,14 +416,6 @@ function findLinks(
   return found.map(({ link }) => link);
 }
 
-function isNonLinkAngleTarget(target: string): boolean {
-  const tagName = target.replace(/^\//, '').replace(/\/$/, '').toLowerCase();
-  return (
-    htmlTagNames.has(tagName) ||
-    /^(?:your|replace|insert|example)[_-]/i.test(target)
-  );
-}
-
 interface MarkdownLinkMatch {
   start: number;
   end: number;
@@ -483,6 +438,12 @@ function findMarkdownLinks(input: string): MarkdownLinkMatch[] {
     if (!parsed) {
       continue;
     }
+    if (
+      parsed.target.startsWith('#') ||
+      (parsed.angleWrapped && isAnglePlaceholderTarget(parsed.target))
+    ) {
+      continue;
+    }
     matches.push({
       start: opening.index,
       end: parsed.end,
@@ -497,7 +458,7 @@ function findMarkdownLinks(input: string): MarkdownLinkMatch[] {
 function parseMarkdownLinkTarget(
   input: string,
   afterOpen: number,
-): { target: string; end: number } | undefined {
+): { target: string; end: number; angleWrapped: boolean } | undefined {
   let start = afterOpen;
   while (input[start] === ' ' || input[start] === '\t') {
     start += 1;
@@ -511,7 +472,11 @@ function parseMarkdownLinkTarget(
     const close = findMarkdownLinkClose(input, angleEnd + 1);
     return close < 0
       ? undefined
-      : { target: input.slice(start + 1, angleEnd), end: close + 1 };
+      : {
+          target: input.slice(start + 1, angleEnd),
+          end: close + 1,
+          angleWrapped: true,
+        };
   }
 
   let depth = 0;
@@ -524,14 +489,22 @@ function parseMarkdownLinkTarget(
     if (character === '(') {
       depth += 1;
     } else if (character === ')' && depth === 0) {
-      return { target: input.slice(start, index), end: index + 1 };
+      return {
+        target: input.slice(start, index),
+        end: index + 1,
+        angleWrapped: false,
+      };
     } else if (character === ')') {
       depth -= 1;
     } else if ((character === ' ' || character === '\t') && depth === 0) {
       const close = findMarkdownLinkClose(input, index);
       return close < 0
         ? undefined
-        : { target: input.slice(start, index), end: close + 1 };
+        : {
+            target: input.slice(start, index),
+            end: close + 1,
+            angleWrapped: false,
+          };
     }
   }
   return undefined;
@@ -607,9 +580,17 @@ function isLocalTarget(target: string): boolean {
     target.startsWith('#') ||
     target.startsWith('//') ||
     target.toLowerCase().startsWith('www.') ||
-    /^[^@\s<>]+@[^@\s<>]+\.[^@\s<>]+$/.test(target) ||
-    /^[a-z][a-z\d+.-]*:/i.test(target)
+    emailAddressPattern.test(target) ||
+    absoluteUriPattern.test(target)
   );
+}
+
+function isAutolinkTarget(target: string): boolean {
+  return absoluteUriPattern.test(target) || emailAddressPattern.test(target);
+}
+
+function isAnglePlaceholderTarget(target: string): boolean {
+  return anglePlaceholderPattern.test(target);
 }
 
 function trimBareUrl(value: string): string {

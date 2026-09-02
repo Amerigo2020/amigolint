@@ -47,6 +47,11 @@ Findings can be suppressed with `amigolint-disable-next-line`, paired
 explicit `--config` path, `amigolint.config.json`, `.amigolintrc.json`, or the
 `amigolint` key in `package.json`; rule entries accept either a severity or a
 `[severity, options]` tuple. The shipped `schema.json` describes this format.
+For `duplicate-rule` and `contradiction`, the `crossFile` option is `"auto"`
+(the default), `"all"`, or `"none"`. Auto mode compares only instruction files
+that the same agent loads together and keeps lazily loaded skills and scoped
+instructions isolated. Lazy files also use twice the configured per-file token
+budget and do not count toward agent startup totals.
 
 ## Programmatic API
 

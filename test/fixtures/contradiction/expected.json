@@ -3,18 +3,18 @@
     "file": "CLAUDE.md",
     "line": 3,
     "severity": "warn",
-    "message": "Possible contradiction: conflicts with `AGENTS.md:6`"
+    "message": "Possible contradiction with `AGENTS.md:6`: \"Always use TypeScript strict mode for every production pack…\" vs \"Never use TypeScript strict mode for any production package\" (shared: typescript, strict, mode, production, package)"
   },
   {
     "file": "CLAUDE.md",
     "line": 4,
     "severity": "warn",
-    "message": "Possible contradiction: conflicts with `AGENTS.md:7`"
+    "message": "Possible contradiction with `AGENTS.md:7`: \"Prefer signed release artifacts during deployment verificat…\" vs \"Avoid signed release artifacts during deployment verificati…\" (shared: signed, release, artifacts, deployment, verification)"
   },
   {
     "file": "CLAUDE.md",
     "line": 5,
     "severity": "warn",
-    "message": "Possible contradiction: conflicts with `AGENTS.md:8`"
+    "message": "Possible contradiction with `AGENTS.md:8`: \"Only run database migrations after backup verification comp…\" vs \"Don't run database migrations after backup verification com…\" (shared: database, migrations, backup, verification, completes)"
   }
 ]

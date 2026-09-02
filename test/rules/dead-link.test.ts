@@ -85,6 +85,34 @@ describe('AL006 dead-link', () => {
     ).toEqual(expected);
   });
 
+  it('ignores non-link angle syntax, anchors, and inline-code examples', async () => {
+    const doc = parseDoc(
+      'AGENTS.md',
+      [
+        'Use <audience>, \\<vibe>, <url>, <design_plan>, and <br\\> as placeholders.',
+        'Ignore [anchor](#setup), [placeholder](<url>), [dots](<...>), [audience](<audience>), [design](<design_plan>), [vibe](<vibe>), [key](<your-key>), [break](<br\\>), and `[inline](inline-missing.md)`.',
+        'Autolinks <https://example.invalid/docs> and <support@example.com> stay remote.',
+        'Read the [missing page](missing-from-markdown.md).',
+      ].join('\n'),
+    );
+    const repo = await buildRepoIndex(repoRoot);
+
+    const findings = await deadLink.check({
+      doc,
+      allDocs: [doc],
+      repo,
+      options: {},
+    });
+
+    expect(findings).toEqual([
+      expect.objectContaining({
+        file: 'AGENTS.md',
+        line: 4,
+        message: 'Local link `missing-from-markdown.md` does not exist',
+      }),
+    ]);
+  });
+
   it('uses HEAD, reports bad statuses and timeouts, and limits concurrency', async () => {
     methods.length = 0;
     maximumActiveRequests = 0;

@@ -1,5 +1,8 @@
+import { isAutoLoadedAtStart, isLazilyLoaded } from '../doc-groups.js';
 import type { AgentKind, Doc } from '../types.js';
 import type { Finding, Rule, RuleContext } from './types.js';
+
+export { isAutoLoadedAtStart };
 
 const DEFAULT_FILE_LIMIT = 4_000;
 const DEFAULT_FILE_ERROR_LIMIT = 12_000;
@@ -49,20 +52,23 @@ function positiveNumber(value: unknown, fallback: number): number {
 }
 
 function checkFile(doc: Doc, limits: TokenLimits): Finding | undefined {
+  const lazilyLoaded = isLazilyLoaded(doc);
+  const fileLimit = lazilyLoaded ? limits.file * 2 : limits.file;
+  const fileErrorLimit = lazilyLoaded ? limits.fileError * 2 : limits.fileError;
   const severity =
-    doc.approxTokens > limits.fileError
+    doc.approxTokens > fileErrorLimit
       ? 'error'
-      : doc.approxTokens > limits.file
+      : doc.approxTokens > fileLimit
         ? 'warn'
         : undefined;
   if (!severity) {
     return undefined;
   }
-  const limit = severity === 'error' ? limits.fileError : limits.file;
+  const limit = severity === 'error' ? fileErrorLimit : fileLimit;
   return makeFinding(
     doc.path,
     severity,
-    `File is ≈${formatTokens(doc.approxTokens)} tokens (limit ${formatTokens(limit)})`,
+    `File is ≈${formatTokens(doc.approxTokens)} tokens (limit ${formatTokens(limit)})${lazilyLoaded ? ' (lazily loaded)' : ''}`,
   );
 }
 
@@ -71,7 +77,10 @@ function checkAgentTotal(
   limits: TokenLimits,
 ): Finding | undefined {
   const autoLoaded = context.allDocs.filter(
-    (doc) => doc.agent === context.doc.agent && isAutoLoadedAtStart(doc),
+    (doc) =>
+      doc.agent === context.doc.agent &&
+      isAutoLoadedAtStart(doc) &&
+      !isLazilyLoaded(doc),
   );
   if (autoLoaded[0]?.path !== context.doc.path) {
     return undefined;
@@ -102,31 +111,6 @@ function checkAgentTotal(
     'warn',
     `${agentLabel(context.doc.agent)} auto-load total is ≈${formatTokens(total)} tokens (limit ${formatTokens(limits.agentTotal)}); largest contributors: ${contributors}`,
   );
-}
-
-export function isAutoLoadedAtStart(doc: Doc): boolean {
-  switch (doc.agent) {
-    case 'claude':
-      return (
-        doc.path === 'CLAUDE.md' ||
-        doc.path === 'CLAUDE.local.md' ||
-        doc.path === '.claude/CLAUDE.md'
-      );
-    case 'codex':
-      return doc.path === 'AGENTS.md';
-    case 'cursor':
-      return (
-        doc.path === '.cursorrules' || doc.frontmatter?.alwaysApply === true
-      );
-    case 'copilot':
-    case 'gemini':
-    case 'windsurf':
-    case 'cline':
-    case 'roo':
-      return true;
-    case 'generic':
-      return false;
-  }
 }
 
 function agentLabel(agent: AgentKind): string {

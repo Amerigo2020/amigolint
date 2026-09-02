@@ -114,6 +114,42 @@ describe('configuration', () => {
     await expect(loadConfig({ cwd: root })).rejects.toThrow(/Invalid config/);
   });
 
+  it.each([
+    'auto',
+    'all',
+    'none',
+  ] as const)('accepts crossFile: %s for both cross-document rules', async (crossFile) => {
+    const root = await temporaryRoot();
+    await writeFile(
+      path.join(root, 'amigolint.config.json'),
+      JSON.stringify({
+        rules: {
+          'duplicate-rule': ['warn', { crossFile }],
+          contradiction: ['warn', { crossFile }],
+        },
+      }),
+    );
+
+    await expect(loadConfig({ cwd: root })).resolves.toMatchObject({
+      rules: {
+        'duplicate-rule': ['warn', { crossFile }],
+        contradiction: ['warn', { crossFile }],
+      },
+    });
+  });
+
+  it('rejects an invalid crossFile mode for cross-document rules', async () => {
+    const root = await temporaryRoot();
+    await writeFile(
+      path.join(root, 'amigolint.config.json'),
+      JSON.stringify({
+        rules: { 'duplicate-rule': ['warn', { crossFile: 'sometimes' }] },
+      }),
+    );
+
+    await expect(loadConfig({ cwd: root })).rejects.toThrow(/Invalid config/);
+  });
+
   it('keeps the shipped JSON schema generated from the zod schema', async () => {
     const shipped = JSON.parse(
       await readFile(path.resolve('schema.json'), 'utf8'),

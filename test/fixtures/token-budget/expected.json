@@ -3,7 +3,7 @@
     "file": ".claude/skills/lazy/SKILL.md",
     "line": 1,
     "severity": "warn",
-    "message": "File is ≈43 tokens (limit 30)"
+    "message": "File is ≈71 tokens (limit 60) (lazily loaded)"
   },
   {
     "file": "AGENTS.md",

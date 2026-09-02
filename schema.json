@@ -19,8 +19,71 @@
     },
     "rules": {
       "type": "object",
-      "propertyNames": {
-        "type": "string"
+      "properties": {
+        "duplicate-rule": {
+          "anyOf": [
+            {
+              "type": "string",
+              "enum": ["error", "warn", "info", "off"]
+            },
+            {
+              "type": "array",
+              "prefixItems": [
+                {
+                  "type": "string",
+                  "enum": ["error", "warn", "info", "off"]
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "crossFile": {
+                      "default": "auto",
+                      "description": "Compare instructions in automatically loaded groups, all files, or only the current file",
+                      "type": "string",
+                      "enum": ["auto", "all", "none"]
+                    }
+                  },
+                  "additionalProperties": {}
+                }
+              ],
+              "minItems": 2,
+              "maxItems": 2,
+              "items": false
+            }
+          ]
+        },
+        "contradiction": {
+          "anyOf": [
+            {
+              "type": "string",
+              "enum": ["error", "warn", "info", "off"]
+            },
+            {
+              "type": "array",
+              "prefixItems": [
+                {
+                  "type": "string",
+                  "enum": ["error", "warn", "info", "off"]
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "crossFile": {
+                      "default": "auto",
+                      "description": "Compare instructions in automatically loaded groups, all files, or only the current file",
+                      "type": "string",
+                      "enum": ["auto", "all", "none"]
+                    }
+                  },
+                  "additionalProperties": {}
+                }
+              ],
+              "minItems": 2,
+              "maxItems": 2,
+              "items": false
+            }
+          ]
+        }
       },
       "additionalProperties": {
         "anyOf": [

@@ -41,10 +41,10 @@ Default targets, searched from repo root (root = nearest ancestor with `.git`, e
 
 | Agent | Files | Auto-loaded by agent? |
 |-------|-------|------------------------|
-| Claude Code | `CLAUDE.md`, `CLAUDE.local.md`, `**/CLAUDE.md`, `.claude/CLAUDE.md`, `.claude/skills/*/SKILL.md`, `.claude/agents/*.md`, `.claude/commands/*.md` | root + nested on demand; skills lazily |
-| Codex | `AGENTS.md`, `**/AGENTS.md`, `.agents/skills/*/SKILL.md` | root always |
+| Claude Code | `CLAUDE.md`, `CLAUDE.local.md`, `**/CLAUDE.md`, `.claude/CLAUDE.md`, `.claude/skills/*/SKILL.md`, `.claude/agents/*.md`, `.claude/commands/*.md` | root always; nested by location; skills, agents, and commands lazily |
+| Codex | `AGENTS.md`, `**/AGENTS.md`, `.agents/skills/*/SKILL.md` | root always; nested by location; skills lazily |
 | Cursor | `.cursorrules`, `.cursor/rules/*.mdc` | per `alwaysApply`/`globs` |
-| Copilot | `.github/copilot-instructions.md`, `.github/instructions/*.instructions.md` | always |
+| Copilot | `.github/copilot-instructions.md`, `.github/instructions/*.instructions.md` | root always; scoped instructions lazily |
 | Gemini CLI | `GEMINI.md` | always |
 | Windsurf | `.windsurfrules`, `.windsurf/rules/*.md` | always |
 | Cline / Roo | `.clinerules`, `.clinerules/*.md`, `.roo/rules/*.md` | always |
@@ -75,6 +75,8 @@ interface Doc {
 ```
 
 Parsing is hand-written (regex + state machine), no markdown AST library. Must handle fenced blocks with ``` and ~~~, nested backticks, and Windows line endings.
+
+Angle-bracket autolinks are links only when their content is an absolute URI or an email address. Link-looking text inside inline code, local anchors, and angle-bracket placeholder destinations are not links.
 
 ## 6. Rules
 
@@ -165,8 +167,8 @@ Exclusions: values that are obviously placeholders (`xxx`, `your-`, `<...>`, `ex
 
 ### AL005 `token-budget` (warn)
 
-Per file: warn above `4000` approx tokens, error above `12000`. Config `tokenBudget: { file: 4000, fileError: 12000, agentTotal: 8000 }`.
-Per agent: sum of files that agent auto-loads at session start (see table in §4, "always" rows plus root + `.claude/CLAUDE.md` for Claude). Warn if sum > `agentTotal`. Message includes the total and the three largest contributors.
+Per file: warn above `4000` approx tokens, error above `12000`. Config `tokenBudget: { file: 4000, fileError: 12000, agentTotal: 8000 }`. Lazily loaded files use twice the configured per-file thresholds and are labelled "(lazily loaded)" in findings.
+Per agent: sum of files that agent auto-loads at session start (see table in §4, "always" rows plus root + `.claude/CLAUDE.md` for Claude). Lazily loaded files and nested files are excluded. Warn if sum > `agentTotal`. Message includes the total and the three largest contributors.
 
 ### AL006 `dead-link` (warn)
 
@@ -174,11 +176,13 @@ Markdown links `[text](target)` and `<target>` where target is local (no scheme,
 
 ### AL007 `duplicate-rule` (warn)
 
-Across all docs, compare non-empty prose lines longer than 40 chars, normalized (lowercase, collapse whitespace, strip markdown bullets/punctuation). Similarity = Sørensen–Dice on word bigrams. Report pairs with similarity >= 0.9, once per pair, pointing at the second occurrence with "duplicates <file>:<line>". Skip lines inside code blocks and headings.
+Compare non-empty prose lines longer than 40 chars, normalized (lowercase, collapse whitespace, strip markdown bullets/punctuation). Similarity = Sørensen–Dice on word bigrams. Candidate pairs must share at least two bigrams, or one when the line has fewer than six words; implementations must use a bigram index rather than a full pairwise scan. Report similarity >= 0.9 at most once per line, pointing at the second occurrence with "duplicates <file>:<line>". Skip lines inside code blocks and headings.
+
+Cross-file comparison defaults to `crossFile: "auto"`: compare only documents loaded together by the same agent, with nested `CLAUDE.md`/`AGENTS.md` joining their root group and lazily loaded files comparing only within themselves. `crossFile: "all"` restores repository-wide comparison and `crossFile: "none"` limits comparison to each file.
 
 ### AL008 `contradiction` (warn)
 
-Heuristic only, always labelled "possible contradiction". For every pair of imperative lines (start with or contain `always|never|must|must not|do not|don't|avoid|prefer|use|only`), extract content keywords (words >= 4 chars minus stopwords and the modal words above). If they share >= 2 keywords and one is positive (`always|must|use|prefer|only`) while the other is negative (`never|must not|do not|don't|avoid`), report once per pair. Fixture-driven; precision matters more than recall.
+Heuristic only, always labelled "possible contradiction". For imperative lines under 300 characters (start with or contain `always|never|must|must not|do not|don't|avoid|prefer|use|only`), extract lowercase content keywords (words >= 4 chars minus stopwords and the modal words above). A candidate needs opposite polarity, at least three shared keywords, and at least one shared keyword occurring in fewer than 5% of all imperative corpus lines. Use the same `crossFile` modes and document groups as AL007. Report only the best-scoring partner per line, at most ten findings per file, with both source lines truncated to 60 characters in the message. Fixture-driven; precision matters more than recall.
 
 ### AL009 `vague-rule` (info)
 

@@ -10,6 +10,7 @@ const instructionFileCount = 30;
 const missingPathsPerInstructionFile = 20;
 
 let repoRoot = '';
+let duplicateRepoRoot = '';
 
 beforeAll(async () => {
   repoRoot = await mkdtemp(path.join(tmpdir(), 'amigolint-perf-'));
@@ -53,11 +54,67 @@ beforeAll(async () => {
     ].join('\n');
     await writeFile(path.join(directory, 'AGENTS.md'), instructionSource);
   }
+
+  duplicateRepoRoot = await mkdtemp(
+    path.join(tmpdir(), 'amigolint-duplicate-perf-'),
+  );
+  const sharedBoilerplate = Array.from(
+    { length: 80 },
+    (_, lineIndex) =>
+      `Shared boilerplate entry ${lineIndex} asks maintainers to verify component${lineIndex} behavior before approval`,
+  );
+  const nearBoilerplatePrefix = [
+    'Maintain',
+    'stable',
+    'release',
+    'validation',
+    'records',
+    'across',
+    'every',
+    'generated',
+    'package',
+    'while',
+    'preserving',
+    'reviewer',
+    'context',
+    'ownership',
+    'metadata',
+    'audit',
+    'history',
+    'carefully',
+  ].join(' ');
+  await Promise.all(
+    Array.from({ length: 60 }, async (_, fileIndex) => {
+      const directory = path.join(
+        duplicateRepoRoot,
+        'packages',
+        `package-${String(fileIndex).padStart(2, '0')}`,
+      );
+      await mkdir(directory, { recursive: true });
+      const uniqueLines = Array.from(
+        { length: 120 },
+        (_, lineIndex) =>
+          `${nearBoilerplatePrefix} packageword${fileIndex}x${lineIndex} guidelineword${fileIndex}x${lineIndex}`,
+      );
+      await writeFile(
+        path.join(directory, 'AGENTS.md'),
+        [
+          '# Generated instructions',
+          ...sharedBoilerplate,
+          ...uniqueLines,
+          '',
+        ].join('\n'),
+      );
+    }),
+  );
 }, 60_000);
 
 afterAll(async () => {
   if (repoRoot !== '') {
     await rm(repoRoot, { recursive: true, force: true });
+  }
+  if (duplicateRepoRoot !== '') {
+    await rm(duplicateRepoRoot, { recursive: true, force: true });
   }
 }, 60_000);
 
@@ -74,6 +131,18 @@ describe('performance', () => {
     expect(
       report.findings.every(({ suggestion }) => suggestion !== undefined),
     ).toBe(true);
+    expect(elapsed).toBeLessThan(3_000);
+  }, 60_000);
+
+  it('fully lints 60 instruction files with 200 lines and 40% shared boilerplate in under 3 seconds', async () => {
+    const startedAt = performance.now();
+    const report = await lint({ root: duplicateRepoRoot });
+    const elapsed = performance.now() - startedAt;
+
+    expect(report.files).toHaveLength(60);
+    expect(
+      report.findings.filter(({ rule }) => rule === 'duplicate-rule'),
+    ).toHaveLength(80 * 59);
     expect(elapsed).toBeLessThan(3_000);
   }, 60_000);
 });

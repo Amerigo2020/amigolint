@@ -165,16 +165,53 @@ describe('parseDoc', () => {
     ]);
   });
 
-  it('does not parse HTML tags or angle-bracket placeholders as links', () => {
+  it('parses only URI and email autolinks in angle brackets', () => {
     const doc = parseDoc(
       'AGENTS.md',
-      'Use <details>, </summary>, <div>, and <your-key>; read <docs/guide.md>.',
+      [
+        'Use <audience>, \\<vibe>, <url>, <design_plan>, <br\\>, and <docs/guide.md>.',
+        'Open <https://example.com/docs>, <custom+agent:value>, or <support@example.com>.',
+      ].join('\n'),
+    );
+
+    expect(doc.links).toEqual([
+      {
+        line: 2,
+        text: 'https://example.com/docs',
+        target: 'https://example.com/docs',
+        isLocal: false,
+      },
+      {
+        line: 2,
+        text: 'custom+agent:value',
+        target: 'custom+agent:value',
+        isLocal: false,
+      },
+      {
+        line: 2,
+        text: 'support@example.com',
+        target: 'support@example.com',
+        isLocal: false,
+      },
+    ]);
+  });
+
+  it('skips anchors, placeholder targets, and links inside inline code', () => {
+    const doc = parseDoc(
+      'AGENTS.md',
+      'Ignore [heading](#setup), [placeholder](<url>), [dots](<...>), [audience](<audience>), [design](<design_plan>), [vibe](<vibe>), [key](<your-key>), [break](<br\\>), and `[example](missing.md)`; keep [image](<assets/missing.png>) and [docs](docs/guide.md).',
     );
 
     expect(doc.links).toEqual([
       {
         line: 1,
-        text: 'docs/guide.md',
+        text: 'image',
+        target: 'assets/missing.png',
+        isLocal: true,
+      },
+      {
+        line: 1,
+        text: 'docs',
         target: 'docs/guide.md',
         isLocal: true,
       },

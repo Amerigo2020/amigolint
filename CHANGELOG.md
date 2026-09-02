@@ -35,5 +35,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   paths
 - Refined `stale-path` handling for bracket syntax, scoped package globs,
   TypeScript path aliases, bare extension mentions, and ambiguous local globs
+- Scoped duplicate and contradiction checks to agent load groups by default,
+  added configurable cross-file modes, and bounded their output
+- Added indexed duplicate candidate blocking and stricter contradiction rarity
+  checks for large instruction-file collections
+- Stopped treating placeholder angle syntax as links and adjusted token budgets
+  for lazily loaded instructions
 
 [Unreleased]: https://github.com/Amerigo2020/amigolint/commits/main
