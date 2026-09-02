@@ -58,6 +58,18 @@ describe('buildRepoIndex', () => {
     ).toEqual(['.', 'packages/api']);
   });
 
+  it('collects dependency names from every package and dependency table', async () => {
+    const index = await buildRepoIndex(fixturePath('pnpm'));
+
+    expect([...index.dependencies].sort()).toEqual([
+      '@scope/pkg',
+      'motion',
+      'next',
+      'optional-tool',
+      'standalone-dependency',
+    ]);
+  });
+
   it('supports package.json workspaces and ignores malformed packages', async () => {
     const index = await buildRepoIndex(fixturePath('package-workspaces'));
 

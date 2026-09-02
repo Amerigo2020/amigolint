@@ -2,5 +2,8 @@
   "name": "standalone",
   "scripts": {
     "standalone-only": "node check.mjs"
+  },
+  "dependencies": {
+    "standalone-dependency": "1.0.0"
   }
 }

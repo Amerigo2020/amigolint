@@ -14,6 +14,8 @@ const domainPattern =
 const propertyAccessPattern =
   /^(?:request|response|req|res|process|console|module|exports|import\.meta)(?:\.[A-Za-z_$][\w$]*)+$/;
 const scopedPackagePattern = /^@[\w-]+\/[\w.-]+$/;
+const cssArbitraryValuePattern = /\[[\w.%-]+\]/;
+const extensionlessSegmentPattern = /^[a-z0-9-]+$/;
 const windowsDrivePathPattern = /^[A-Za-z]:[\\/]/;
 const commonSourceRootPattern =
   /^(?:src|apps|packages|docs|test|tests|scripts|lib)\//;
@@ -49,6 +51,9 @@ const stalePath: Rule = {
     const ignoredPatterns = readIgnorePatterns(context.options);
 
     for (const rawCandidate of collectCandidates(context.doc)) {
+      if (containsPlaceholder(rawCandidate.text)) {
+        continue;
+      }
       const candidate = normalizeCandidate(rawCandidate);
       const { text } = candidate;
       const key = `${candidate.line}:${candidate.col}:${text}`;
@@ -79,6 +84,22 @@ const stalePath: Rule = {
       }
 
       if (pathExists(text, context)) {
+        continue;
+      }
+
+      if (isBareInlineFilename(candidate)) {
+        if (hasFileWithBasename(text, context.repo)) {
+          continue;
+        }
+        findings.push(
+          makeFinding(
+            candidate,
+            context.doc.path,
+            `${quote(text)} does not exist anywhere in the repo`,
+            undefined,
+            'warn',
+          ),
+        );
         continue;
       }
 
@@ -235,10 +256,75 @@ function isCandidate(candidate: Candidate, repo: RepoIndex): boolean {
   if (!isPathLike(candidate.text)) {
     return false;
   }
+  if (
+    isCssArbitraryValue(candidate.text) ||
+    hasNumericPathSegment(candidate.text) ||
+    isDependencySubpath(candidate.text, repo) ||
+    (candidate.source === 'inline' &&
+      isExtensionlessSlashToken(candidate.text, repo))
+  ) {
+    return false;
+  }
   if (candidate.source !== 'prose') {
     return true;
   }
   return isProseCandidate(candidate.text, repo);
+}
+
+function isCssArbitraryValue(candidate: string): boolean {
+  return (
+    !knownExtension.test(candidate) && cssArbitraryValuePattern.test(candidate)
+  );
+}
+
+function hasNumericPathSegment(candidate: string): boolean {
+  return (
+    candidate.includes('/') &&
+    candidate.split('/').some((segment) => /^\d+$/.test(segment))
+  );
+}
+
+function isExtensionlessSlashToken(
+  candidate: string,
+  repo: RepoIndex,
+): boolean {
+  if (
+    !candidate.includes('/') ||
+    candidate.startsWith('.') ||
+    candidate.startsWith('~/')
+  ) {
+    return false;
+  }
+  const segments = candidate.split('/');
+  const firstSegment = segments[0];
+  return (
+    firstSegment !== undefined &&
+    segments.every((segment) => extensionlessSegmentPattern.test(segment)) &&
+    !repo.files.has(firstSegment) &&
+    !repo.directories.has(firstSegment)
+  );
+}
+
+function isDependencySubpath(candidate: string, repo: RepoIndex): boolean {
+  if (!candidate.includes('/') || candidate.startsWith('.')) {
+    return false;
+  }
+  const segments = candidate.split('/');
+  const dependencyName = candidate.startsWith('@')
+    ? segments.length >= 2
+      ? `${segments[0]}/${segments[1]}`
+      : undefined
+    : segments[0];
+  return dependencyName !== undefined && repo.dependencies.has(dependencyName);
+}
+
+function containsPlaceholder(candidate: string): boolean {
+  return (
+    candidate.includes('<') ||
+    candidate.includes('>') ||
+    candidate.includes('{{') ||
+    candidate.includes('}}')
+  );
 }
 
 function isProseCandidate(candidate: string, repo: RepoIndex): boolean {
@@ -341,10 +427,20 @@ function globHasMatch(candidate: string, context: RuleContext): boolean {
   if (candidate.startsWith('~/')) {
     return false;
   }
-  const paths = [...context.repo.files];
-  return resolutionCandidates(candidate, context.doc).some((pattern) =>
-    paths.some((repoPath) => matchesGlob(repoPath, pattern)),
+  return resolutionCandidates(candidate, context.doc).some(
+    (pattern) =>
+      hasGlobMatch(context.repo.files, pattern) ||
+      hasGlobMatch(context.repo.directories, pattern),
   );
+}
+
+function hasGlobMatch(paths: ReadonlySet<string>, pattern: string): boolean {
+  for (const repoPath of paths) {
+    if (repoPath !== '.' && matchesGlob(repoPath, pattern)) {
+      return true;
+    }
+  }
+  return false;
 }
 
 function resolutionCandidates(candidate: string, doc: Doc): string[] {
@@ -353,7 +449,15 @@ function resolutionCandidates(candidate: string, doc: Doc): string[] {
   const docRelative = normalizeRepoPath(
     path.posix.join(path.posix.dirname(doc.path), candidate),
   );
-  return [...new Set([candidate, rootRelative, docRelative])].filter(
+  const resolved = [candidate, rootRelative, docRelative];
+  if (path.posix.basename(doc.path) === 'SKILL.md') {
+    let ancestor = path.posix.dirname(path.posix.dirname(doc.path));
+    while (ancestor !== '.') {
+      resolved.push(normalizeRepoPath(path.posix.join(ancestor, candidate)));
+      ancestor = path.posix.dirname(ancestor);
+    }
+  }
+  return [...new Set(resolved)].filter(
     (value) => value !== '' && value !== '.',
   );
 }
@@ -455,6 +559,20 @@ function getSuggestionIndex(repo: RepoIndex): SuggestionIndex {
   };
   suggestionIndexes.set(repo, index);
   return index;
+}
+
+function isBareInlineFilename(candidate: Candidate): boolean {
+  return (
+    candidate.source === 'inline' &&
+    !candidate.text.includes('/') &&
+    knownExtension.test(candidate.text)
+  );
+}
+
+function hasFileWithBasename(candidate: string, repo: RepoIndex): boolean {
+  return (getSuggestionIndex(repo).byBasename.get(candidate) ?? []).some(
+    (repoPath) => repo.files.has(repoPath),
+  );
 }
 
 function insertBasename(root: BasenameTrieNode, basename: string): void {
@@ -581,11 +699,14 @@ function makeFinding(
   file: string,
   message: string,
   suggestion?: string,
+  severity: Finding['severity'] = candidate.source === 'prose'
+    ? 'warn'
+    : 'error',
 ): Finding {
   return {
     rule: stalePath.id,
     code: stalePath.code,
-    severity: candidate.source === 'prose' ? 'warn' : 'error',
+    severity,
     file,
     line: candidate.line,
     col: candidate.col,

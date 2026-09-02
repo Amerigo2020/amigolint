@@ -24,5 +24,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   and documented exit codes
 - Reduced `stale-path` prose false positives and indexed basename suggestions
   for fast linting on large repositories
+- Improved `stale-path` precision for CSS tokens, package subpaths,
+  placeholders, ambiguous bare filenames, directory globs, and skill-relative
+  paths
 
 [Unreleased]: https://github.com/Amerigo2020/amigolint/commits/main

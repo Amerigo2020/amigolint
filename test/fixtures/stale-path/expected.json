@@ -153,5 +153,19 @@
     "severity": "error",
     "message": "`src/utils/foa.ts` does not exist",
     "suggestion": "Did you mean `src/utils/foo.ts`?"
+  },
+  {
+    "file": "AGENTS.md",
+    "line": 56,
+    "col": 25,
+    "severity": "warn",
+    "message": "`unfindable-reference.csv` does not exist anywhere in the repo"
+  },
+  {
+    "file": "AGENTS.md",
+    "line": 58,
+    "col": 42,
+    "severity": "error",
+    "message": "`src/missing` does not exist"
   }
 ]

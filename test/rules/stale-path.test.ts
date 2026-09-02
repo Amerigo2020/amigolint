@@ -11,6 +11,7 @@ const fixtureDir = fileURLToPath(
   new URL('../fixtures/stale-path/', import.meta.url),
 );
 const repoRoot = path.join(fixtureDir, 'repo');
+const noDependencyFixtureDir = path.join(fixtureDir, 'no-dependency');
 const temporaryDirectories: string[] = [];
 
 afterEach(async () => {
@@ -39,6 +40,13 @@ describe('AL001 stale-path', () => {
     ) as Array<Record<string, unknown>>;
     const doc = parseDoc('AGENTS.md', raw);
     const repo = await buildRepoIndex(repoRoot);
+
+    expect([...repo.dependencies].sort()).toEqual([
+      '@scope/pkg',
+      'motion',
+      'next',
+      'optional-tool',
+    ]);
 
     const findings = stalePath.check({
       doc,
@@ -85,6 +93,44 @@ describe('AL001 stale-path', () => {
       ),
     ).toEqual([]);
 
+    for (const token of [
+      'min-h-[100dvh]',
+      'scale-[0.98]',
+      'rounded-[2rem]',
+      'leading-[1.1]',
+      'z-[9999]',
+      'opacity-[0.03]',
+      '!min-h-[100dvh]',
+      'bg-black/[0.03]',
+      'bg-[red]/alpha',
+      'bg-[#fff]/[0.03]',
+      'border-white/10',
+      'w-1/2',
+      '50/50',
+      'text-7xl/text-8xl',
+      'shadcn/ui',
+      'motion/react',
+      'next/font',
+      '@scope/pkg/sub',
+      'optional-tool/runtime.mjs',
+      'reference/<platform>.md',
+      'reference/{{platform}}.md',
+      '<uncreated.md>',
+      '{{uncreated.md}}',
+      'layout.tsx',
+      'server.js',
+      'context.mjs',
+      'index.html',
+      'postcss.config.js',
+      'website-brief.md',
+      'packages/*',
+    ]) {
+      expect(
+        findings.some(({ message }) => message.startsWith(`\`${token}\``)),
+        token,
+      ).toBe(false);
+    }
+
     expect(
       findings.find(({ message }) => message === '`CI/CD` does not exist'),
     ).not.toHaveProperty('suggestion');
@@ -120,25 +166,77 @@ describe('AL001 stale-path', () => {
     );
   });
 
-  it('requires a glob to match a file rather than only a directory', async () => {
-    const root = await mkdtemp(path.join(tmpdir(), 'amigolint-empty-glob-'));
+  it('matches globs against directories as well as files', async () => {
+    const root = await mkdtemp(path.join(tmpdir(), 'amigolint-dir-glob-'));
     temporaryDirectories.push(root);
-    await mkdir(path.join(root, 'empty', 'nested'), { recursive: true });
-    const doc = parseDoc('AGENTS.md', 'Check `empty/**`\n');
+    await mkdir(path.join(root, 'packages', 'api'), { recursive: true });
+    const doc = parseDoc('AGENTS.md', 'Check `packages/*`\n');
     const repo = await buildRepoIndex(root);
 
     expect(stalePath.check({ doc, allDocs: [doc], repo, options: {} })).toEqual(
-      [
-        {
-          rule: 'stale-path',
-          code: 'AL001',
-          severity: 'error',
-          file: 'AGENTS.md',
-          line: 1,
-          col: 8,
-          message: '`empty/**` glob matches no files',
-        },
-      ],
+      [],
+    );
+  });
+
+  it('skips extensionless package shapes without dependencies but checks paths with extensions', async () => {
+    const root = path.join(noDependencyFixtureDir, 'repo');
+    const raw = await readFile(path.join(root, 'AGENTS.md'), 'utf8');
+    const expected = JSON.parse(
+      await readFile(
+        path.join(noDependencyFixtureDir, 'expected.json'),
+        'utf8',
+      ),
+    ) as Array<Record<string, unknown>>;
+    const doc = parseDoc('AGENTS.md', raw);
+    const repo = await buildRepoIndex(root);
+
+    expect(
+      stalePath
+        .check({ doc, allDocs: [doc], repo, options: {} })
+        .map(({ file, line, col, severity, message }) => ({
+          file,
+          line,
+          col,
+          severity,
+          message,
+        })),
+    ).toEqual(expected);
+  });
+
+  it('resolves paths through a SKILL.md parent chain', async () => {
+    const skillPath = '.agents/skills/example/SKILL.md';
+    const raw = await readFile(path.join(repoRoot, skillPath), 'utf8');
+    const doc = parseDoc(skillPath, raw);
+    const repo = await buildRepoIndex(repoRoot);
+
+    expect(stalePath.check({ doc, allDocs: [doc], repo, options: {} })).toEqual(
+      [],
+    );
+  });
+
+  it('recognizes packages installed under node_modules without declarations', async () => {
+    const root = await mkdtemp(path.join(tmpdir(), 'amigolint-node-modules-'));
+    temporaryDirectories.push(root);
+    await Promise.all([
+      mkdir(path.join(root, 'node_modules', 'installed-kit'), {
+        recursive: true,
+      }),
+      mkdir(path.join(root, 'node_modules', '@installed', 'pkg'), {
+        recursive: true,
+      }),
+    ]);
+    const doc = parseDoc(
+      'AGENTS.md',
+      'Use `installed-kit/runtime.js` and `@installed/pkg/runtime.js`\n',
+    );
+    const repo = await buildRepoIndex(root);
+
+    expect([...repo.dependencies].sort()).toEqual([
+      '@installed/pkg',
+      'installed-kit',
+    ]);
+    expect(stalePath.check({ doc, allDocs: [doc], repo, options: {} })).toEqual(
+      [],
     );
   });
 });

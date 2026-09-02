@@ -26,9 +26,11 @@ finding (or too many warnings), and exit code 2 means a runtime or config error.
 | AL002 | `stale-script` | error | Reports package scripts and make, just, or turbo targets that do not exist |
 
 AL001 limits ordinary prose to explicit relative paths, common source roots,
-and paths below existing top-level repository entries. Prose findings are
-warnings without suggestions. A package script found only in another workspace
-package is informational for AL002.
+and paths below existing top-level repository entries. It recognizes package
+subpaths, CSS utility tokens, placeholders, and bare filenames found elsewhere
+in the repository. Prose and unresolved bare-filename findings are warnings. A
+package script found only in another workspace package is informational for
+AL002.
 
 ## Programmatic API
 

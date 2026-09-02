@@ -1,4 +1,4 @@
-import { readFile } from 'node:fs/promises';
+import { readdir, readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { glob } from 'tinyglobby';
 import { parse as parseYaml } from 'yaml';
@@ -11,6 +11,12 @@ const INDEX_IGNORES = [
 
 const MAKEFILE_NAMES = new Set(['Makefile', 'makefile', 'GNUmakefile']);
 const JUSTFILE_NAMES = new Set(['justfile', 'Justfile', '.justfile']);
+const DEPENDENCY_TABLES = [
+  'dependencies',
+  'devDependencies',
+  'peerDependencies',
+  'optionalDependencies',
+] as const;
 
 export interface PackageScripts {
   /** The package directory, relative to the repo root, or `.` for the root. */
@@ -29,6 +35,8 @@ export interface RepoIndex {
   packages: PackageScripts[];
   /** Every valid package.json, used only when walking up from a document. */
   allPackages: PackageScripts[];
+  /** Declared and locally installed package names from across the repository. */
+  dependencies: Set<string>;
   makeTargets: Set<string>;
   justRecipes: Set<string>;
   turboTasks: Set<string>;
@@ -91,11 +99,20 @@ async function buildUncachedRepoIndex(root: string): Promise<RepoIndex> {
 
   const files = new Set(filePaths.map(toPosixPath));
   const directories = new Set(['.', ...directoryPaths.map(toPosixPath)]);
-  const { packages, allPackages } = await loadPackages(root, files);
-  const [makeTargets, justRecipes, turboTasks] = await Promise.all([
-    loadMakeTargets(root, files),
-    loadJustRecipes(root, files),
-    loadTurboTasks(root, files),
+  const { packages, allPackages, declaredDependencies } = await loadPackages(
+    root,
+    files,
+  );
+  const [installedDependencies, makeTargets, justRecipes, turboTasks] =
+    await Promise.all([
+      loadInstalledDependencies(root, allPackages),
+      loadMakeTargets(root, files),
+      loadJustRecipes(root, files),
+      loadTurboTasks(root, files),
+    ]);
+  const dependencies = new Set([
+    ...declaredDependencies,
+    ...installedDependencies,
   ]);
 
   return {
@@ -104,6 +121,7 @@ async function buildUncachedRepoIndex(root: string): Promise<RepoIndex> {
     directories,
     packages,
     allPackages,
+    dependencies,
     makeTargets,
     justRecipes,
     turboTasks,
@@ -116,7 +134,11 @@ async function buildUncachedRepoIndex(root: string): Promise<RepoIndex> {
 async function loadPackages(
   root: string,
   files: ReadonlySet<string>,
-): Promise<{ packages: PackageScripts[]; allPackages: PackageScripts[] }> {
+): Promise<{
+  packages: PackageScripts[];
+  allPackages: PackageScripts[];
+  declaredDependencies: Set<string>;
+}> {
   const allPackageJsonPaths = [...files]
     .filter((file) => path.posix.basename(file) === 'package.json')
     .sort(comparePackageJsonPaths);
@@ -152,6 +174,14 @@ async function loadPackages(
   const allPackages = validPackageRecords.map(({ packageJsonPath, contents }) =>
     toPackageScripts(packageJsonPath, contents),
   );
+  const declaredDependencies = new Set(
+    validPackageRecords.flatMap(({ contents }) =>
+      DEPENDENCY_TABLES.flatMap((table) => {
+        const dependencies = contents[table];
+        return isRecord(dependencies) ? Object.keys(dependencies) : [];
+      }),
+    ),
+  );
   const packages = allPackages.filter(({ packageJsonPath }) =>
     workspacePackagePaths.has(packageJsonPath),
   );
@@ -159,7 +189,69 @@ async function loadPackages(
   return {
     packages: packages.sort(comparePackages),
     allPackages: allPackages.sort(comparePackages),
+    declaredDependencies,
   };
+}
+
+async function loadInstalledDependencies(
+  root: string,
+  packages: PackageScripts[],
+): Promise<Set<string>> {
+  const packageDirectories = new Set([
+    '.',
+    ...packages.map(({ directory }) => directory),
+  ]);
+  const installedByDirectory = await Promise.all(
+    [...packageDirectories].map((directory) =>
+      readInstalledDependencies(path.join(root, directory, 'node_modules')),
+    ),
+  );
+  return new Set(installedByDirectory.flat());
+}
+
+async function readInstalledDependencies(
+  nodeModulesPath: string,
+): Promise<string[]> {
+  const entries = await readdir(nodeModulesPath, {
+    withFileTypes: true,
+  }).catch(() => undefined);
+  if (!entries) {
+    return [];
+  }
+
+  const packageEntries = entries.filter(
+    (entry) =>
+      !entry.name.startsWith('.') &&
+      (entry.isDirectory() || entry.isSymbolicLink()),
+  );
+  const dependencies = packageEntries
+    .filter(({ name }) => !name.startsWith('@'))
+    .map(({ name }) => name);
+  const scopedDependencies = await Promise.all(
+    packageEntries
+      .filter(({ name }) => name.startsWith('@'))
+      .map(async ({ name: scope }) => {
+        try {
+          const scopedEntries = await readdir(
+            path.join(nodeModulesPath, scope),
+            {
+              withFileTypes: true,
+            },
+          );
+          return scopedEntries
+            .filter(
+              (entry) =>
+                !entry.name.startsWith('.') &&
+                (entry.isDirectory() || entry.isSymbolicLink()),
+            )
+            .map(({ name }) => `${scope}/${name}`);
+        } catch {
+          return [];
+        }
+      }),
+  );
+
+  return [...dependencies, ...scopedDependencies.flat()];
 }
 
 function comparePackageJsonPaths(left: string, right: string): number {

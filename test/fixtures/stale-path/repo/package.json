@@ -1,10 +1,5 @@
 {
-  "name": "repo-index-pnpm-fixture",
-  "private": true,
-  "scripts": {
-    "root-only": "echo root",
-    "shared": "echo shared"
-  },
+  "type": "module",
   "dependencies": {
     "next": "1.0.0"
   },

@@ -1,0 +1,9 @@
+[
+  {
+    "file": "AGENTS.md",
+    "line": 2,
+    "col": 8,
+    "severity": "error",
+    "message": "`next/font.ts` does not exist"
+  }
+]

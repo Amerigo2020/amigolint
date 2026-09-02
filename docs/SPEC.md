@@ -115,15 +115,18 @@ Exclude a candidate when it:
 - contains `://` or starts with `www.` (URL)
 - contains `:` unless it is a Windows drive path (`C:\...` or `C:/...`)
 - starts with `-` (CLI flag) or contains whitespace (command)
-- contains glob characters `* ? { [` → instead run the glob against the repo index; report only if it matches zero files (message: "glob matches no files")
+- contains `<`, `>`, `{{`, or `}}` (placeholder)
+- is a slash-separated token with a purely numeric segment, such as `w-1/2`, or an inline token whose segments all match `^[a-z0-9-]+$`, whose first segment is not a top-level repository entry, and which has no explicit relative or dot prefix
+- is an npm package subpath whose package prefix is declared in any repository `package.json` dependency table or installed under a repository `node_modules`
+- contains a bracket group matching `^\[[\w.%-]+\]$` (CSS arbitrary-value class), unless the token ends in a known file extension; otherwise glob characters `* ? { [` are matched against both files and directories in the repo index and reported only when they match neither (message: "glob matches no files")
 - is an absolute path that does not have a file extension (`/health`, `/api/users`): treat as URL route, skip
 - is a known non-path: `package.json` keys like `request.body`, `process.env.X`, `foo.bar()` (contains `(`), versions like `1.2.3`, domain-like `foo.com`
-- resolves to an existing path relative to (a) the doc's directory, (b) repo root, (c) `$HOME` when starting with `~`
+- resolves to an existing path relative to (a) the doc's directory, (b) repo root, (c) `$HOME` when starting with `~`; references in `SKILL.md` also resolve against every parent of the skill directory through the repo root
 - is listed in config `stalePath.ignore` (globs)
 
 Suggestion: for inline code and `@imports`, prefer the same basename in another directory, breaking ties by the smallest full-path Levenshtein distance. Otherwise fuzzy match the basename against the repo index only when the candidate basename has at least four characters and the basename Levenshtein distance is <= 2. At most one suggestion. Prose findings do not receive suggestions.
 
-Severity note: candidates from prose (not inline code) are reported as `warn`, not `error`, because false positives are more likely there.
+Severity note: candidates from prose (not inline code) are reported as `warn`, not `error`, because false positives are more likely there. A missing bare filename in inline code is first searched by basename across the repository, then reported as `warn` with "does not exist anywhere in the repo" because its intended location is ambiguous.
 
 ### AL002 `stale-script` (error)
 

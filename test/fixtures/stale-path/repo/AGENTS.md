@@ -47,3 +47,13 @@ Trailing colon inline: `docs/missing.md:`
 Namespaced prose path: build:apps/web/app/missing.tsx
 Trailing colon prose: docs/another-missing.md:
 Fuzzy basename: `src/utils/foa.ts`
+Tailwind arbitrary values: `min-h-[100dvh]` `scale-[0.98]` `rounded-[2rem]` `leading-[1.1]` `z-[9999]` `opacity-[0.03]` `!min-h-[100dvh]` `bg-black/[0.03]` `bg-[red]/alpha` `bg-[#fff]/[0.03]`
+Numeric CSS fractions: `border-white/10` `w-1/2` `50/50`
+Extensionless slash tokens: `text-7xl/text-8xl` `shadcn/ui` `motion/react` `next/font`
+Dependency subpaths: `next/font` `motion/react` `@scope/pkg/sub` `optional-tool/runtime.mjs`
+Placeholders: `reference/<platform>.md` `reference/{{platform}}.md`
+Existing bare filenames: `layout.tsx` `server.js` `context.mjs` `index.html` `postcss.config.js` `website-brief.md`
+Missing bare filename: `unfindable-reference.csv`
+Directory-only glob match: `packages/*`
+Existing top-level prefix stays a path: `src/missing`
+Wrapped placeholders: `<uncreated.md>` `{{uncreated.md}}`
