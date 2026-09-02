@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- A UTF-8 byte order mark in `package.json`, `amigolint.config.json` or a
+  frontmatter block no longer aborts the run or produces bogus frontmatter
+  errors
+- Explicit paths that do not exist now exit with code 2 and a message instead
+  of a green "0 files" report; explicit gitignored files and symlinks are linted
+- `~/` paths and `@~/` imports are machine-specific: reported as `info` by
+  default, skipped when `CI` is set, configurable via `homePaths`
+  (`check` | `info` | `skip`); `os.homedir()` is used when `HOME` is unset
+- Paths that exist only with different casing are reported as a warning
+  instead of passing on macOS and failing on Linux
+- Tracked symlinks are part of the repository index
+- Stacked `**/` globs, very long globs and pathological single lines no longer
+  cause exponential regex backtracking
+- Commander usage errors exit with code 2; YAML frontmatter errors are reported
+  as a finding instead of raw Node warnings; multi-line messages are normalised
+  for the pretty reporter
+
 ### Changed
 
 - Improved `stale-path` precision for generated-directory references,

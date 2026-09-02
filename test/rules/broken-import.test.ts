@@ -1,7 +1,8 @@
-import { readFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { parseDoc } from '../../src/parse.js';
 import { buildRepoIndex } from '../../src/repo-index.js';
 import brokenImport from '../../src/rules/broken-import.js';
@@ -13,6 +14,20 @@ const repoRoot = path.join(fixtureDir, 'repo');
 const stalePathFixtureRoot = fileURLToPath(
   new URL('../fixtures/stale-path/', import.meta.url),
 );
+const temporaryDirectories: string[] = [];
+
+beforeEach(() => {
+  vi.stubEnv('CI', undefined);
+});
+
+afterEach(async () => {
+  vi.unstubAllEnvs();
+  await Promise.all(
+    temporaryDirectories
+      .splice(0)
+      .map((directory) => rm(directory, { force: true, recursive: true })),
+  );
+});
 
 describe('AL003 broken-import', () => {
   it('checks Claude imports, Cursor globs, and SKILL.md directory names', async () => {
@@ -57,7 +72,7 @@ describe('AL003 broken-import', () => {
       doc,
       allDocs: [doc],
       repo,
-      options: {},
+      options: { homePaths: 'check' },
     });
 
     expect(findings).toEqual([
@@ -71,7 +86,75 @@ describe('AL003 broken-import', () => {
         message: '`@~/docs/home-missing.md` import does not exist',
       },
     ]);
-    vi.unstubAllEnvs();
+  });
+
+  it('supports info, check, and skip policies for home imports', async () => {
+    const fakeHome = await mkdtemp(path.join(tmpdir(), 'amigolint-home-'));
+    temporaryDirectories.push(fakeHome);
+    vi.stubEnv('HOME', fakeHome);
+    vi.stubEnv('CI', undefined);
+    const doc = parseDoc('CLAUDE.md', '@~/missing.md\n');
+    const repo = await buildRepoIndex(repoRoot);
+
+    expect(
+      brokenImport.check({ doc, allDocs: [doc], repo, options: {} }),
+    ).toEqual([
+      expect.objectContaining({
+        severity: 'info',
+        message:
+          '`@~/missing.md` import does not exist in this home directory (machine-specific)',
+      }),
+    ]);
+    expect(
+      brokenImport.check({
+        doc,
+        allDocs: [doc],
+        repo,
+        options: { homePaths: 'check' },
+      }),
+    ).toEqual([
+      expect.objectContaining({
+        severity: 'error',
+        message: '`@~/missing.md` import does not exist',
+      }),
+    ]);
+    expect(
+      brokenImport.check({
+        doc,
+        allDocs: [doc],
+        repo,
+        options: { homePaths: 'skip' },
+      }),
+    ).toEqual([]);
+
+    vi.stubEnv('CI', 'true');
+    expect(
+      brokenImport.check({ doc, allDocs: [doc], repo, options: {} }),
+    ).toEqual([]);
+  });
+
+  it('reports imports that exist only with different casing', async () => {
+    const root = await mkdtemp(path.join(tmpdir(), 'amigolint-import-case-'));
+    temporaryDirectories.push(root);
+    await mkdir(path.join(root, 'src'), { recursive: true });
+    await writeFile(path.join(root, 'src', 'app.ts'), 'export {}\n');
+    const doc = parseDoc('CLAUDE.md', '@src/App.ts\n');
+    const repo = await buildRepoIndex(root);
+
+    expect(
+      brokenImport.check({ doc, allDocs: [doc], repo, options: {} }),
+    ).toEqual([
+      {
+        rule: 'broken-import',
+        code: 'AL003',
+        severity: 'warn',
+        file: 'CLAUDE.md',
+        line: 1,
+        col: 2,
+        message:
+          '`src/App.ts` exists only with different casing (`src/app.ts`); this fails on case-sensitive systems',
+      },
+    ]);
   });
 
   it.each([

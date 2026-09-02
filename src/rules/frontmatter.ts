@@ -1,4 +1,5 @@
 import path from 'node:path';
+import { normalizeFinding } from '../findings.js';
 import type { Doc } from '../types.js';
 import type { Finding, Rule } from './types.js';
 
@@ -13,6 +14,15 @@ const frontmatter = {
   defaultSeverity: 'error',
   docs: 'Validates required frontmatter and agent-specific field types.',
   check(context) {
+    if (context.doc.frontmatterError !== undefined) {
+      return [
+        makeFinding(
+          context.doc,
+          1,
+          `Frontmatter YAML is invalid: ${context.doc.frontmatterError}`,
+        ),
+      ];
+    }
     const findings = [
       ...checkCursorRule(context.doc),
       ...checkSkill(context.doc),
@@ -181,12 +191,12 @@ function escapeRegExp(value: string): string {
 }
 
 function makeFinding(doc: Doc, line: number, message: string): Finding {
-  return {
+  return normalizeFinding({
     rule: 'frontmatter',
     code: 'AL011',
     severity: 'error',
     file: doc.path,
     line,
     message,
-  };
+  });
 }

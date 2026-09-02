@@ -1,7 +1,13 @@
+import { execFile } from 'node:child_process';
+import { mkdir, mkdtemp, symlink, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { promisify } from 'node:util';
 import { describe, expect, it } from 'vitest';
 import { buildRepoIndex, createRepoIndexCache } from '../src/repo-index.js';
 
+const execFileAsync = promisify(execFile);
 const fixturePath = (name: string): string =>
   fileURLToPath(new URL(`fixtures/repo-index/${name}/repo/`, import.meta.url));
 
@@ -147,6 +153,60 @@ describe('buildRepoIndex', () => {
     );
     expect(index.turboTasks).toEqual(new Set(['build', 'lint', 'legacy']));
   });
+
+  it('loads scripts and tasks from UTF-8 BOM-prefixed JSON files', async () => {
+    const root = await mkdtemp(path.join(tmpdir(), 'amigolint-index-bom-'));
+    await Promise.all([
+      writeFile(path.join(root, 'AGENTS.md'), '# Instructions\n'),
+      writeFile(
+        path.join(root, 'package.json'),
+        '\uFEFF{"name":"fixture","scripts":{"check":"echo ok"}}',
+      ),
+      writeFile(path.join(root, 'turbo.json'), '\uFEFF{"tasks":{"build":{}}}'),
+    ]);
+
+    const index = await buildRepoIndex(root);
+
+    expect(index.packages[0]?.scripts).toEqual(new Set(['check']));
+    expect(index.turboTasks).toEqual(new Set(['build']));
+  });
+
+  it.skipIf(process.platform === 'win32')(
+    'indexes tracked symlinks to files and directories',
+    async () => {
+      const root = await mkdtemp(path.join(tmpdir(), 'amigolint-index-links-'));
+      await mkdir(path.join(root, 'docs'));
+      await writeFile(path.join(root, 'docs', 'guide-real.md'), '# Guide\n');
+      await symlink('docs/guide-real.md', path.join(root, 'guide.md'));
+      await symlink('docs', path.join(root, 'linked-docs'));
+      await execFileAsync('git', ['init', '--quiet'], { cwd: root });
+      await execFileAsync('git', ['add', '.'], { cwd: root });
+
+      const index = await buildRepoIndex(root);
+
+      expect(index.files.has('guide.md')).toBe(true);
+      expect(index.directories.has('linked-docs')).toBe(true);
+    },
+  );
+
+  it.skipIf(process.platform === 'win32')(
+    'follows symlinks in the non-git fallback without looping',
+    async () => {
+      const root = await mkdtemp(
+        path.join(tmpdir(), 'amigolint-index-link-fallback-'),
+      );
+      await mkdir(path.join(root, 'docs'));
+      await writeFile(path.join(root, 'docs', 'guide.md'), '# Guide\n');
+      await symlink('docs', path.join(root, 'linked-docs'));
+      await symlink('..', path.join(root, 'docs', 'loop'));
+
+      const index = await buildRepoIndex(root);
+
+      expect(index.files.has('linked-docs/guide.md')).toBe(true);
+      expect(index.files.size).toBeLessThan(10);
+      expect(index.directories.size).toBeLessThan(10);
+    },
+  );
 
   it('deduplicates builds inside one run cache only', async () => {
     const root = fixturePath('pnpm');

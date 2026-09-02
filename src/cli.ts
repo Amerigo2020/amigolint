@@ -5,7 +5,7 @@ import { readFile, writeFile } from 'node:fs/promises';
 import { createRequire } from 'node:module';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { Command } from 'commander';
+import { Command, CommanderError } from 'commander';
 import { loadConfig } from './config.js';
 import { discover, findRepoRoot } from './discover.js';
 import { documentLoadMode } from './doc-groups.js';
@@ -52,6 +52,7 @@ export async function main(argv: string[] = process.argv): Promise<void> {
     .option('--check-urls', 'check remote URLs where supported')
     .option('--quiet', 'show errors only')
     .option('--no-color', 'disable colored output');
+  program.exitOverride();
 
   program
     .command('lint [paths...]', { hidden: true, isDefault: true })
@@ -80,7 +81,16 @@ export async function main(argv: string[] = process.argv): Promise<void> {
       process.stdout.write('Created `amigolint.config.json`\n');
     });
 
-  await program.parseAsync(argv);
+  try {
+    await program.parseAsync(argv);
+  } catch (error) {
+    if (!(error instanceof CommanderError)) {
+      throw error;
+    }
+    if (error.exitCode !== 0) {
+      process.exitCode = 2;
+    }
+  }
 }
 
 async function runLint(paths: string[], cliOptions: CliOptions): Promise<void> {
@@ -364,7 +374,11 @@ function isDirectExecution(): boolean {
     return false;
   }
   try {
-    return realpathSync(entry) === realpathSync(fileURLToPath(import.meta.url));
+    const entryPath = realpathSync(entry);
+    const modulePath = realpathSync(fileURLToPath(import.meta.url));
+    return process.platform === 'win32'
+      ? entryPath.toLowerCase() === modulePath.toLowerCase()
+      : entryPath === modulePath;
   } catch {
     return false;
   }

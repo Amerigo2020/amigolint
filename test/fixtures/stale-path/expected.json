@@ -136,8 +136,8 @@
     "file": "AGENTS.md",
     "line": 45,
     "col": 21,
-    "severity": "warn",
-    "message": "`~/missing-home.md` does not exist"
+    "severity": "info",
+    "message": "`~/missing-home.md` does not exist in this home directory (machine-specific)"
   },
   {
     "file": "AGENTS.md",

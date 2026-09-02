@@ -47,6 +47,8 @@ export interface Doc {
   agent: AgentKind;
   raw: string;
   frontmatter?: Record<string, unknown>;
+  /** YAML parser error for a delimited frontmatter block, if any. */
+  frontmatterError?: string;
   lines: Line[];
   codeBlocks: CodeBlock[];
   inlineCode: Span[];

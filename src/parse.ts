@@ -1,4 +1,5 @@
-import { parse as parseYaml } from 'yaml';
+import { parseDocument as parseYamlDocument } from 'yaml';
+import { stripLeadingBom } from './fs-utils.js';
 import type {
   AgentKind,
   CodeBlock,
@@ -89,7 +90,8 @@ export function detectAgent(filePath: string): AgentKind {
 export function parseDoc(filePath: string, raw: string): Doc {
   const path = normalizeDocPath(filePath);
   const agent = detectAgent(path);
-  const textLines = raw.replace(/\r\n?/g, '\n').split('\n');
+  const source = stripLeadingBom(raw);
+  const textLines = source.replace(/\r\n?/g, '\n').split('\n');
   const frontmatterResult = parseFrontmatter(textLines);
   const lines: Line[] = [];
   const codeBlocks: CodeBlock[] = [];
@@ -210,13 +212,16 @@ export function parseDoc(filePath: string, raw: string): Doc {
     ...(frontmatterResult.frontmatter === undefined
       ? {}
       : { frontmatter: frontmatterResult.frontmatter }),
+    ...(frontmatterResult.error === undefined
+      ? {}
+      : { frontmatterError: frontmatterResult.error }),
     lines,
     codeBlocks,
     inlineCode,
     links,
     imports,
     headings,
-    approxTokens: Math.ceil(raw.length / 3.6),
+    approxTokens: Math.ceil(source.length / 3.6),
   };
 }
 
@@ -227,6 +232,7 @@ function normalizeDocPath(filePath: string): string {
 function parseFrontmatter(textLines: string[]): {
   frontmatter?: Record<string, unknown>;
   endIndex?: number;
+  error?: string;
 } {
   if (!/^---[ \t]*$/.test(textLines[0] ?? '')) {
     return {};
@@ -239,14 +245,23 @@ function parseFrontmatter(textLines: string[]): {
     return {};
   }
 
-  let parsed: unknown;
+  const source = stripLeadingBom(textLines.slice(1, endIndex).join('\n'));
   try {
-    parsed = parseYaml(textLines.slice(1, endIndex).join('\n'));
-  } catch {
-    return { frontmatter: {}, endIndex };
+    const document = parseYamlDocument(source, { logLevel: 'silent' });
+    const parseError = document.errors[0];
+    if (parseError) {
+      return { frontmatter: {}, endIndex, error: parseError.message };
+    }
+    const parsed: unknown = document.toJS();
+    const frontmatter = isRecord(parsed) ? parsed : {};
+    return { frontmatter, endIndex };
+  } catch (error) {
+    return { frontmatter: {}, endIndex, error: errorMessage(error) };
   }
-  const frontmatter = isRecord(parsed) ? parsed : {};
-  return { frontmatter, endIndex };
+}
+
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -424,8 +439,11 @@ interface MarkdownLinkMatch {
 }
 
 function findMarkdownLinks(input: string): MarkdownLinkMatch[] {
+  if (!input.includes('](')) {
+    return [];
+  }
   const matches: MarkdownLinkMatch[] = [];
-  const openingPattern = /!?\[([^\]]*)\]\(/g;
+  const openingPattern = /!?\[([^\]\n]{0,500})\]\(/g;
 
   for (const opening of input.matchAll(openingPattern)) {
     if (opening.index === undefined || opening[1] === undefined) {

@@ -1,7 +1,17 @@
 import { existsSync } from 'node:fs';
-import { homedir } from 'node:os';
 import path from 'node:path';
 import { globSync } from 'tinyglobby';
+import {
+  homeDirectory,
+  isHomePath,
+  resolveHomePathMode,
+} from '../home-paths.js';
+import {
+  createCaseInsensitivePathIndex,
+  indexedPathWithDifferentCase,
+  inspectPathCase,
+  type PathCaseResult,
+} from '../path-case.js';
 import { REPOSITORY_IGNORE_GLOBS } from '../path-ignore.js';
 import type { Doc, Span } from '../types.js';
 import { repoDefinesTypeScriptAliases } from '../typescript-alias.js';
@@ -34,6 +44,12 @@ export default brokenImport;
 
 function checkClaudeImports(context: RuleContext): Finding[] {
   const findings: Finding[] = [];
+  const homePathMode = resolveHomePathMode(context.options);
+  const directoryEntries = new Map<string, readonly string[]>();
+  const repoCaseIndex = createCaseInsensitivePathIndex([
+    ...context.repo.files,
+    ...context.repo.directories,
+  ]);
 
   for (const imported of context.doc.imports) {
     if (!isPathLikeImport(imported.text)) {
@@ -45,7 +61,29 @@ function checkClaudeImports(context: RuleContext): Finding[] {
     ) {
       continue;
     }
-    if (importExists(imported.text, context)) {
+    const homePath = isHomePath(imported.text);
+    if (homePath && homePathMode === 'skip') {
+      continue;
+    }
+    const resolution = inspectImport(
+      imported.text,
+      context,
+      directoryEntries,
+      repoCaseIndex,
+    );
+    if (resolution.kind === 'exact') {
+      continue;
+    }
+    if (resolution.kind === 'different') {
+      findings.push(
+        makeFinding(
+          context.doc,
+          imported.line,
+          `\`${imported.text}\` exists only with different casing (\`${resolution.actualPath}\`); this fails on case-sensitive systems`,
+          'warn',
+          imported,
+        ),
+      );
       continue;
     }
     if (isScopedPackageImport(imported.text, context)) {
@@ -56,8 +94,10 @@ function checkClaudeImports(context: RuleContext): Finding[] {
       makeFinding(
         context.doc,
         imported.line,
-        `\`@${imported.text}\` import does not exist`,
-        'error',
+        homePath && homePathMode === 'info'
+          ? `\`@${imported.text}\` import does not exist in this home directory (machine-specific)`
+          : `\`@${imported.text}\` import does not exist`,
+        homePath && homePathMode === 'info' ? 'info' : 'error',
         imported,
       ),
     );
@@ -75,20 +115,49 @@ function isPathLikeImport(candidate: string): boolean {
   );
 }
 
-function importExists(candidate: string, context: RuleContext): boolean {
-  const resolved = resolveImport(candidate, context);
-  return resolved !== undefined && existsSync(resolved);
-}
-
-function resolveImport(
+function inspectImport(
   candidate: string,
   context: RuleContext,
-): string | undefined {
+  directoryEntries: Map<string, readonly string[]>,
+  repoCaseIndex: ReadonlyMap<string, readonly string[]>,
+): PathCaseResult {
+  const resolved = resolveImport(candidate, context);
+  const relative = path.relative(context.repo.root, resolved);
+  const inRepository =
+    relative !== '' &&
+    relative !== '..' &&
+    !relative.startsWith(`..${path.sep}`) &&
+    !path.isAbsolute(relative);
+  if (inRepository) {
+    const repoPath = relative.replaceAll(path.sep, '/');
+    if (
+      context.repo.files.has(repoPath) ||
+      context.repo.directories.has(repoPath)
+    ) {
+      return { kind: 'exact' };
+    }
+    const different = indexedPathWithDifferentCase(repoPath, repoCaseIndex);
+    if (different !== undefined) {
+      return { kind: 'different', actualPath: different };
+    }
+  }
+
+  const inspected = inspectPathCase(resolved, directoryEntries);
+  if (inspected.kind !== 'different') {
+    return inspected;
+  }
+  return {
+    kind: 'different',
+    actualPath: displayResolvedPath(inspected.actualPath, candidate, context),
+  };
+}
+
+function resolveImport(candidate: string, context: RuleContext): string {
   if (candidate === '~') {
-    return process.env.HOME ?? homedir();
+    return homeDirectory();
   }
   if (candidate.startsWith('~/')) {
-    return path.join(process.env.HOME ?? homedir(), candidate.slice(2));
+    return path.join(homeDirectory(), candidate.slice(2));
   }
   if (path.isAbsolute(candidate)) {
     return candidate;
@@ -99,6 +168,27 @@ function resolveImport(
     path.posix.dirname(context.doc.path),
     candidate,
   );
+}
+
+function displayResolvedPath(
+  actualPath: string,
+  candidate: string,
+  context: RuleContext,
+): string {
+  if (isHomePath(candidate)) {
+    const relative = path.relative(homeDirectory(), actualPath);
+    return relative === '' ? '~' : `~/${relative.replaceAll(path.sep, '/')}`;
+  }
+  const relative = path.relative(context.repo.root, actualPath);
+  if (
+    relative !== '' &&
+    relative !== '..' &&
+    !relative.startsWith(`..${path.sep}`) &&
+    !path.isAbsolute(relative)
+  ) {
+    return relative.replaceAll(path.sep, '/');
+  }
+  return actualPath.replaceAll(path.sep, '/');
 }
 
 function isScopedPackageImport(

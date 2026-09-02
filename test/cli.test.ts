@@ -158,6 +158,106 @@ describe('amigolint CLI', () => {
     expect(result.stdout).toContain('0 errors');
   });
 
+  it('exits 2 when an explicit path does not exist', async () => {
+    const result = await runCli(['nope.md'], path.join(fixtureRoot, 'clean'));
+
+    expect(result).toEqual({
+      code: 2,
+      stderr: 'amigolint: `nope.md` does not exist\n',
+      stdout: '',
+    });
+  });
+
+  it('lints an explicit file even when git ignores it', async () => {
+    const cwd = path.join(fixtureRoot, 'explicit-ignored');
+    await mkdir(cwd, { recursive: true });
+    await execFileAsync('git', ['init', '--quiet'], { cwd });
+    await Promise.all([
+      writeFile(path.join(cwd, '.gitignore'), 'ignored.md\n'),
+      writeFile(path.join(cwd, 'ignored.md'), 'Use `missing/file.ts`\n'),
+    ]);
+
+    const result = await runCli(
+      ['ignored.md', '--format', 'json', '--rule', 'stale-path'],
+      cwd,
+    );
+
+    expect(result.code).toBe(1);
+    const report = reportSchema.parse(JSON.parse(result.stdout));
+    expect(report.files.map(({ path: file }) => file)).toEqual(['ignored.md']);
+    expect(report.findings).toEqual([
+      expect.objectContaining({
+        code: 'AL001',
+        file: 'ignored.md',
+        message: '`missing/file.ts` does not exist',
+      }),
+    ]);
+  });
+
+  it.skipIf(process.platform === 'win32')(
+    'lints an explicit symlink to a file',
+    async () => {
+      const cwd = path.join(fixtureRoot, 'explicit-symlink');
+      await mkdir(cwd, { recursive: true });
+      await writeFile(path.join(cwd, 'source.md'), 'Use `missing/file.ts`\n');
+      await symlink('source.md', path.join(cwd, 'linked.md'));
+
+      const result = await runCli(
+        ['linked.md', '--format', 'json', '--rule', 'stale-path'],
+        cwd,
+      );
+
+      expect(result.code).toBe(1);
+      const report = reportSchema.parse(JSON.parse(result.stdout));
+      expect(report.files.map(({ path: file }) => file)).toEqual(['linked.md']);
+      expect(report.findings).toEqual([
+        expect.objectContaining({ code: 'AL001', file: 'linked.md' }),
+      ]);
+    },
+  );
+
+  it('lints an outside explicit file using its containing directory as root', async () => {
+    const cwd = path.join(fixtureRoot, 'inside-repo');
+    const outside = path.join(fixtureRoot, 'outside-repo');
+    await Promise.all([
+      mkdir(cwd, { recursive: true }),
+      mkdir(outside, { recursive: true }),
+    ]);
+    await execFileAsync('git', ['init', '--quiet'], { cwd });
+    await writeFile(path.join(outside, 'CLAUDE.md'), 'Use `missing/file.ts`\n');
+
+    const result = await runCli(
+      [
+        path.join(outside, 'CLAUDE.md'),
+        '--format',
+        'json',
+        '--rule',
+        'stale-path',
+      ],
+      cwd,
+    );
+
+    expect(result.code).toBe(1);
+    const report = reportSchema.parse(JSON.parse(result.stdout));
+    expect(report.root).toBe(outside);
+    expect(report.files.map(({ path: file }) => file)).toEqual(['CLAUDE.md']);
+    expect(report.findings).toEqual([
+      expect.objectContaining({ code: 'AL001', file: 'CLAUDE.md' }),
+    ]);
+  });
+
+  it('exits 2 for Commander usage errors', async () => {
+    const result = await runCli(
+      ['--definitely-invalid'],
+      path.join(fixtureRoot, 'clean'),
+    );
+
+    expect(result.code).toBe(2);
+    expect(result.stderr).toContain(
+      "error: unknown option '--definitely-invalid'",
+    );
+  });
+
   it('exits 2 when an explicit config path is unreadable', async () => {
     const result = await runCli(
       ['--config', 'does-not-exist.json'],

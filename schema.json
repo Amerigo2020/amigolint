@@ -115,6 +115,12 @@
     },
     "checkUrls": {
       "type": "boolean"
+    },
+    "homePaths": {
+      "default": "info",
+      "description": "Check machine-specific home paths, report them as info, or skip them",
+      "type": "string",
+      "enum": ["check", "info", "skip"]
     }
   },
   "additionalProperties": false,

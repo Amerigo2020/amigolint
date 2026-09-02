@@ -1,7 +1,9 @@
-import { readdir, readFile } from 'node:fs/promises';
+import { execFile } from 'node:child_process';
+import { readdir, readFile, stat } from 'node:fs/promises';
 import path from 'node:path';
 import { glob } from 'tinyglobby';
 import { parse as parseYaml } from 'yaml';
+import { stripLeadingBom } from './fs-utils.js';
 import {
   isRepositoryIgnoredPath,
   REPOSITORY_IGNORE_GLOBS,
@@ -91,6 +93,10 @@ export function buildRepoIndex(
 }
 
 async function buildUncachedRepoIndex(root: string): Promise<RepoIndex> {
+  const trackedSymlinkPaths = await listTrackedSymlinks(root);
+  // tinyglobby delegates followed-link traversal to fdir, which keeps a
+  // visited-realpath set so a directory symlink cycle cannot recurse forever.
+  const followSymbolicLinks = trackedSymlinkPaths === undefined;
   const [
     filePaths,
     directoryPaths,
@@ -100,28 +106,28 @@ async function buildUncachedRepoIndex(root: string): Promise<RepoIndex> {
     glob('**/*', {
       cwd: root,
       dot: true,
-      followSymbolicLinks: false,
+      followSymbolicLinks,
       ignore: REPOSITORY_IGNORE_GLOBS,
       onlyFiles: true,
     }),
     glob('**/*', {
       cwd: root,
       dot: true,
-      followSymbolicLinks: false,
+      followSymbolicLinks,
       ignore: REPOSITORY_IGNORE_GLOBS,
       onlyDirectories: true,
     }),
     glob(VENDORED_SCOPED_PACKAGE_GLOBS, {
       cwd: root,
       dot: true,
-      followSymbolicLinks: false,
+      followSymbolicLinks,
       ignore: vendoredScopedPackageIgnoreGlobs,
       onlyFiles: true,
     }),
     glob(VENDORED_SCOPED_PACKAGE_GLOBS, {
       cwd: root,
       dot: true,
-      followSymbolicLinks: false,
+      followSymbolicLinks,
       ignore: vendoredScopedPackageIgnoreGlobs,
       onlyDirectories: true,
     }),
@@ -138,6 +144,24 @@ async function buildUncachedRepoIndex(root: string): Promise<RepoIndex> {
       .map(toPosixPath)
       .filter((entry) => !isRepositoryIgnoredPath(entry)),
   ]);
+  if (trackedSymlinkPaths) {
+    const symlinkTypes = await Promise.all(
+      trackedSymlinkPaths.map(async (entry) => ({
+        entry,
+        type: await symlinkTargetType(path.join(root, entry)),
+      })),
+    );
+    for (const { entry, type } of symlinkTypes) {
+      if (isRepositoryIgnoredPath(entry)) {
+        continue;
+      }
+      if (type === 'file') {
+        files.add(entry);
+      } else if (type === 'directory') {
+        directories.add(entry);
+      }
+    }
+  }
   const scopedPackageFiles = new Set([
     ...[...files].filter(hasScopedPackageSegment),
     ...vendoredScopedPackageFilePaths
@@ -190,6 +214,49 @@ async function buildUncachedRepoIndex(root: string): Promise<RepoIndex> {
     findPackagesWithScript: (script) =>
       packages.filter((pkg) => pkg.scripts.has(script)),
   };
+}
+
+function listTrackedSymlinks(root: string): Promise<string[] | undefined> {
+  return new Promise((resolveResult) => {
+    execFile(
+      'git',
+      ['ls-files', '--cached', '--stage', '-z'],
+      {
+        cwd: root,
+        encoding: 'utf8',
+        maxBuffer: 16 * 1024 * 1024,
+        windowsHide: true,
+      },
+      (error, stdout) => {
+        if (error) {
+          resolveResult(undefined);
+          return;
+        }
+
+        resolveResult(
+          stdout
+            .split('\0')
+            .filter((entry) => entry.startsWith('120000 '))
+            .flatMap((entry) => {
+              const separatorIndex = entry.indexOf('\t');
+              return separatorIndex < 0
+                ? []
+                : [toPosixPath(entry.slice(separatorIndex + 1))];
+            }),
+        );
+      },
+    );
+  });
+}
+
+async function symlinkTargetType(
+  filePath: string,
+): Promise<'file' | 'directory' | undefined> {
+  const target = await stat(filePath).catch(() => undefined);
+  if (target?.isFile()) {
+    return 'file';
+  }
+  return target?.isDirectory() ? 'directory' : undefined;
 }
 
 async function loadPackages(
@@ -580,7 +647,9 @@ async function readJsonRecord(
   filePath: string,
 ): Promise<Record<string, unknown> | undefined> {
   try {
-    const parsed: unknown = JSON.parse(await readFile(filePath, 'utf8'));
+    const parsed: unknown = JSON.parse(
+      stripLeadingBom(await readFile(filePath, 'utf8')),
+    );
     return isRecord(parsed) ? parsed : undefined;
   } catch {
     return undefined;
