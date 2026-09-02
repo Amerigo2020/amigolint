@@ -36,3 +36,9 @@ All three of build, test and lint must pass before every commit.
 - Do not add a markdown AST library; the parser is hand-written on purpose.
 - Do not lint files under `node_modules`, `.git`, or `.claude/worktrees/**`.
 - Do not change the CLI flag names in `docs/SPEC.md` §9 without updating the spec.
+
+## Environment notes (operator-maintained)
+
+- `vitest` is pinned to 3.x: vitest 4 (vite 8 / rolldown) fails to start on the local Node 26. Do not upgrade it.
+- Your sandbox cannot write to `.git`. Do not branch, commit or merge; leave all changes in the working tree and describe them in your summary. The operator commits after review.
+- Network access is enabled for `pnpm install`. Keep `pnpm-lock.yaml` committed and up to date.

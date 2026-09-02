@@ -1,0 +1,8 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/Amerigo2020/amigolint/main/schema.json",
+  "title": "amigolint configuration",
+  "description": "Configuration for amigolint. Rule options will be added with configuration support.",
+  "type": "object",
+  "additionalProperties": true
+}

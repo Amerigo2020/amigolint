@@ -1,0 +1,75 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Node ${{ matrix.node }} on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        node: [20, 22]
+        os: [ubuntu-latest, macos-latest]
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v6.0.8
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: ${{ matrix.node }}
+          package-manager-cache: false
+
+      - name: Install dependencies
+        run: pnpm install --no-frozen-lockfile
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Test
+        run: pnpm test
+
+      - name: Build
+        run: pnpm build
+
+      - name: Verify bundle
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f dist/cli.mjs
+          test "$(find dist -type f | wc -l | tr -d '[:space:]')" -eq 1
+          test "$(head -n 1 dist/cli.mjs)" = '#!/usr/bin/env node'
+          bytes="$(wc -c < dist/cli.mjs | tr -d '[:space:]')"
+          if (( bytes >= 200000 )); then
+            echo "dist/cli.mjs is ${bytes} bytes; it must be under 200000"
+            exit 1
+          fi
+
+      - name: Test packed CLI
+        shell: bash
+        run: |
+          set -euo pipefail
+          pack_dir="$(mktemp -d "$RUNNER_TEMP/amigolint-pack.XXXXXX")"
+          install_dir="$(mktemp -d "$RUNNER_TEMP/amigolint-install.XXXXXX")"
+
+          pnpm pack --pack-destination "$pack_dir"
+
+          (
+            cd "$install_dir"
+            npm init --yes >/dev/null
+            npm install "$pack_dir"/amigolint-*.tgz
+            test -x node_modules/.bin/amigolint
+            npx amigolint --version
+          )
