@@ -159,10 +159,7 @@ describe('amigolint CLI', () => {
   });
 
   it('exits 2 when an explicit path does not exist', async () => {
-    const result = await runCli(
-      ['nope.md'],
-      path.join(fixtureRoot, 'clean'),
-    );
+    const result = await runCli(['nope.md'], path.join(fixtureRoot, 'clean'));
 
     expect(result).toEqual({
       code: 2,
@@ -202,10 +199,7 @@ describe('amigolint CLI', () => {
     async () => {
       const cwd = path.join(fixtureRoot, 'explicit-symlink');
       await mkdir(cwd, { recursive: true });
-      await writeFile(
-        path.join(cwd, 'source.md'),
-        'Use `missing/file.ts`\n',
-      );
+      await writeFile(path.join(cwd, 'source.md'), 'Use `missing/file.ts`\n');
       await symlink('source.md', path.join(cwd, 'linked.md'));
 
       const result = await runCli(
@@ -230,10 +224,7 @@ describe('amigolint CLI', () => {
       mkdir(outside, { recursive: true }),
     ]);
     await execFileAsync('git', ['init', '--quiet'], { cwd });
-    await writeFile(
-      path.join(outside, 'CLAUDE.md'),
-      'Use `missing/file.ts`\n',
-    );
+    await writeFile(path.join(outside, 'CLAUDE.md'), 'Use `missing/file.ts`\n');
 
     const result = await runCli(
       [

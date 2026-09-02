@@ -144,9 +144,9 @@ describe('discover', () => {
   it('rejects an explicit path that does not exist', async () => {
     const root = await copyFixture({ git: true });
 
-    await expect(
-      discover({ cwd: root, paths: ['nope.md'] }),
-    ).rejects.toThrow('`nope.md` does not exist');
+    await expect(discover({ cwd: root, paths: ['nope.md'] })).rejects.toThrow(
+      '`nope.md` does not exist',
+    );
   });
 
   it('allows an explicit file ignored by git', async () => {

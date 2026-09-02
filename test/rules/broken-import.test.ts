@@ -72,7 +72,7 @@ describe('AL003 broken-import', () => {
       doc,
       allDocs: [doc],
       repo,
-      options: {},
+      options: { homePaths: 'check' },
     });
 
     expect(findings).toEqual([

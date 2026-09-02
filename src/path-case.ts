@@ -29,9 +29,7 @@ export function inspectPathCase(
     }
     const matching =
       entries.find((entry) => entry === requested) ??
-      entries.find(
-        (entry) => entry.toLowerCase() === requested.toLowerCase(),
-      );
+      entries.find((entry) => entry.toLowerCase() === requested.toLowerCase());
     if (matching === undefined) {
       return { kind: 'missing' };
     }

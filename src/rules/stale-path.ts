@@ -1,5 +1,16 @@
 import { existsSync } from 'node:fs';
 import path from 'node:path';
+import {
+  homeDirectory,
+  isHomePath,
+  resolveHomePathMode,
+} from '../home-paths.js';
+import {
+  createCaseInsensitivePathIndex,
+  type DirectoryEntriesCache,
+  indexedPathWithDifferentCase,
+  inspectPathCase,
+} from '../path-case.js';
 import { GENERATED_DIRECTORY_NAMES } from '../path-ignore.js';
 import type { RepoIndex } from '../repo-index.js';
 import type { Doc, Span } from '../types.js';
@@ -63,6 +74,12 @@ const scopedPackageRootIndexes = new WeakMap<
   Map<string, string[]>
 >();
 const pathSuffixIndexes = new WeakMap<RepoIndex, Map<string, string[]>>();
+const caseInsensitiveIndexes = new WeakMap<
+  RepoIndex,
+  ReadonlyMap<string, readonly string[]>
+>();
+const MAX_GLOB_LENGTH = 256;
+const MAX_WILDCARD_SEGMENTS = 8;
 
 interface Candidate {
   text: string;
@@ -80,6 +97,8 @@ const stalePath = {
     const findings: Finding[] = [];
     const seen = new Set<string>();
     const ignoredPatterns = readIgnorePatterns(context.options);
+    const homePathMode = resolveHomePathMode(context.options);
+    const directoryEntries: DirectoryEntriesCache = new Map();
 
     for (const rawCandidate of collectCandidates(context.doc)) {
       if (
@@ -109,6 +128,28 @@ const stalePath = {
         isGeneratedPathReference(text) ||
         isIgnored(text, context, ignoredPatterns)
       ) {
+        continue;
+      }
+
+      if (isHomePath(text)) {
+        if (
+          homePathMode === 'skip' ||
+          globCharacterPattern.test(text) ||
+          homePathExists(text)
+        ) {
+          continue;
+        }
+        findings.push(
+          makeFinding(
+            candidate,
+            context.doc.path,
+            homePathMode === 'info'
+              ? `${quote(text)} does not exist in this home directory (machine-specific)`
+              : `${quote(text)} does not exist`,
+            undefined,
+            homePathMode === 'info' ? 'info' : undefined,
+          ),
+        );
         continue;
       }
 
@@ -142,6 +183,12 @@ const stalePath = {
       }
 
       if (globCharacterPattern.test(text)) {
+        if (
+          text.length > MAX_GLOB_LENGTH ||
+          wildcardSegmentCount(text) > MAX_WILDCARD_SEGMENTS
+        ) {
+          continue;
+        }
         if (!globHasMatch(text, context)) {
           findings.push(
             makeFinding(
@@ -156,7 +203,29 @@ const stalePath = {
         continue;
       }
 
-      if (pathExists(text, context)) {
+      const existing = resolveExistingPath(text, context);
+      if (existing !== undefined && isIndexedExactly(existing, context.repo)) {
+        continue;
+      }
+      const differentCase = findDifferentCasePath(
+        text,
+        existing,
+        context,
+        directoryEntries,
+      );
+      if (differentCase !== undefined) {
+        findings.push(
+          makeFinding(
+            candidate,
+            context.doc.path,
+            `${quote(text)} exists only with different casing (${quote(differentCase)}); this fails on case-sensitive systems`,
+            undefined,
+            'warn',
+          ),
+        );
+        continue;
+      }
+      if (existing !== undefined) {
         continue;
       }
 
@@ -341,7 +410,7 @@ function maskNonProse(
   }
   for (const pattern of [
     /`+[^`]*`+/g,
-    /!?\[[^\]]*\]\([^)]*\)/g,
+    /!?\[[^\]\n]{0,500}\]\([^)\n]{0,2000}\)/g,
     /(?:https?:\/\/|ftp:\/\/|www\.)[^\s<>"']+/gi,
     /(^|\s)@[^\s`<>"'()]+/g,
     /(?:^|\b(?:command|run|execute)\s*:\s*|\b(?:run|execute)\s+|\$\s*)(?:node|npx|tsx?|python\d*|ruby|bash|sh|zsh|deno)\s+[^\n]+/gi,
@@ -746,39 +815,102 @@ function isIgnored(
   );
 }
 
-function pathExists(candidate: string, context: RuleContext): boolean {
-  if (candidate.startsWith('~/')) {
-    const home = process.env.HOME;
-    return (
-      home !== undefined && existsSync(path.join(home, candidate.slice(2)))
-    );
-  }
+function homePathExists(candidate: string): boolean {
+  const home = homeDirectory();
+  return existsSync(path.join(home, candidate.slice(1)));
+}
+
+function resolveExistingPath(
+  candidate: string,
+  context: RuleContext,
+): string | undefined {
   if (candidate.startsWith('/')) {
     const rootRelative = normalizeRepoPath(candidate.replace(/^\/+/, ''));
     if (resolvedPathExists(rootRelative, context)) {
-      return true;
+      return rootRelative;
     }
   }
   if (isAbsolutePath(candidate)) {
-    return existsSync(candidate);
+    return existsSync(candidate) ? candidate : undefined;
   }
 
   const resolvedCandidates = resolutionCandidates(candidate, context.doc);
-  if (
-    resolvedCandidates.some((resolved) => resolvedPathExists(resolved, context))
-  ) {
-    return true;
+  const direct = resolvedCandidates.find((resolved) =>
+    resolvedPathExists(resolved, context),
+  );
+  if (direct !== undefined) {
+    return direct;
   }
   if (isExplicitRelativeExtensionlessPath(candidate)) {
-    return resolvedCandidates.some((resolved) =>
-      extensionProbeSuffixes.some(
-        (suffix) =>
-          resolvedPathExists(`${resolved}${suffix}`, context) ||
-          resolvedPathExists(`${resolved}/index${suffix}`, context),
-      ),
-    );
+    for (const resolved of resolvedCandidates) {
+      for (const suffix of extensionProbeSuffixes) {
+        if (resolvedPathExists(`${resolved}${suffix}`, context)) {
+          return `${resolved}${suffix}`;
+        }
+        if (resolvedPathExists(`${resolved}/index${suffix}`, context)) {
+          return `${resolved}/index${suffix}`;
+        }
+      }
+    }
   }
-  return false;
+  return undefined;
+}
+
+function isIndexedExactly(resolved: string, repo: RepoIndex): boolean {
+  return repo.files.has(resolved) || repo.directories.has(resolved);
+}
+
+function findDifferentCasePath(
+  candidate: string,
+  existing: string | undefined,
+  context: RuleContext,
+  directoryEntries: DirectoryEntriesCache,
+): string | undefined {
+  if (isAbsolutePath(candidate)) {
+    return undefined;
+  }
+  const index = getCaseInsensitiveIndex(context.repo);
+  for (const resolved of resolutionCandidates(candidate, context.doc)) {
+    const indexed = indexedPathWithDifferentCase(resolved, index);
+    if (indexed !== undefined) {
+      return indexed;
+    }
+  }
+  if (existing === undefined) {
+    return undefined;
+  }
+  const result = inspectPathCase(
+    path.resolve(context.repo.root, existing),
+    directoryEntries,
+  );
+  if (result.kind !== 'different') {
+    return undefined;
+  }
+  return path
+    .relative(context.repo.root, result.actualPath)
+    .split(path.sep)
+    .join('/');
+}
+
+function getCaseInsensitiveIndex(
+  repo: RepoIndex,
+): ReadonlyMap<string, readonly string[]> {
+  const cached = caseInsensitiveIndexes.get(repo);
+  if (cached !== undefined) {
+    return cached;
+  }
+  const index = createCaseInsensitivePathIndex([
+    ...repo.files,
+    ...repo.directories,
+  ]);
+  caseInsensitiveIndexes.set(repo, index);
+  return index;
+}
+
+function wildcardSegmentCount(candidate: string): number {
+  return candidate
+    .split('/')
+    .filter((segment) => globCharacterPattern.test(segment)).length;
 }
 
 function resolvedPathExists(resolved: string, context: RuleContext): boolean {
@@ -1187,7 +1319,8 @@ function matchesGlob(value: string, rawPattern: string): boolean {
   const normalizedPattern = rawPattern
     .replaceAll('\\', '/')
     .replace(/^\.\//, '')
-    .replace(/^\//, '');
+    .replace(/^\//, '')
+    .replace(/(?:\*\*\/)+/g, '**/');
   return globToRegExp(normalizedPattern).test(normalizedValue);
 }
 

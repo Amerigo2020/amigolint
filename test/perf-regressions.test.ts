@@ -53,14 +53,18 @@ describe('performance regressions', () => {
   it.each([
     ['parenthesized path tokens', '(a/b/c '.repeat(25_000)],
     ['opening brackets', '['.repeat(200_000)],
-  ])('lints a 200 kB line of %s in under one second', async (_, line) => {
-    const root = await temporaryRoot('amigolint-line-perf-');
-    await writeFile(path.join(root, 'AGENTS.md'), `${line}\n`);
+  ])(
+    'lints a 200 kB line of %s in under one second',
+    async (_, line) => {
+      const root = await temporaryRoot('amigolint-line-perf-');
+      await writeFile(path.join(root, 'AGENTS.md'), `${line}\n`);
 
-    const startedAt = performance.now();
-    await lint({ root, ruleIds: ['stale-path'] });
-    const elapsed = performance.now() - startedAt;
+      const startedAt = performance.now();
+      await lint({ root, ruleIds: ['stale-path'] });
+      const elapsed = performance.now() - startedAt;
 
-    expect(elapsed).toBeLessThan(1_000);
-  }, 10_000);
+      expect(elapsed).toBeLessThan(1_000);
+    },
+    10_000,
+  );
 });

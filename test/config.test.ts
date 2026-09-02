@@ -109,20 +109,21 @@ describe('configuration', () => {
     });
   });
 
-  it.each(['check', 'info', 'skip'] as const)(
-    'accepts homePaths: %s',
-    async (homePaths) => {
-      const root = await temporaryRoot();
-      await writeFile(
-        path.join(root, 'amigolint.config.json'),
-        JSON.stringify({ homePaths }),
-      );
+  it.each([
+    'check',
+    'info',
+    'skip',
+  ] as const)('accepts homePaths: %s', async (homePaths) => {
+    const root = await temporaryRoot();
+    await writeFile(
+      path.join(root, 'amigolint.config.json'),
+      JSON.stringify({ homePaths }),
+    );
 
-      await expect(loadConfig({ cwd: root })).resolves.toMatchObject({
-        homePaths,
-      });
-    },
-  );
+    await expect(loadConfig({ cwd: root })).resolves.toMatchObject({
+      homePaths,
+    });
+  });
 
   it('rejects an invalid homePaths mode', async () => {
     const root = await temporaryRoot();

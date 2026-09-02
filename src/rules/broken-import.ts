@@ -1,5 +1,4 @@
 import { existsSync } from 'node:fs';
-import { homedir } from 'node:os';
 import path from 'node:path';
 import { globSync } from 'tinyglobby';
 import {
@@ -7,13 +6,13 @@ import {
   isHomePath,
   resolveHomePathMode,
 } from '../home-paths.js';
-import { REPOSITORY_IGNORE_GLOBS } from '../path-ignore.js';
 import {
   createCaseInsensitivePathIndex,
   indexedPathWithDifferentCase,
   inspectPathCase,
   type PathCaseResult,
 } from '../path-case.js';
+import { REPOSITORY_IGNORE_GLOBS } from '../path-ignore.js';
 import type { Doc, Span } from '../types.js';
 import { repoDefinesTypeScriptAliases } from '../typescript-alias.js';
 import type { Finding, Rule, RuleContext } from './types.js';
@@ -153,10 +152,7 @@ function inspectImport(
   };
 }
 
-function resolveImport(
-  candidate: string,
-  context: RuleContext,
-): string {
+function resolveImport(candidate: string, context: RuleContext): string {
   if (candidate === '~') {
     return homeDirectory();
   }

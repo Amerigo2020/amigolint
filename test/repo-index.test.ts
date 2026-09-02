@@ -1,10 +1,5 @@
 import { execFile } from 'node:child_process';
-import {
-  mkdir,
-  mkdtemp,
-  symlink,
-  writeFile,
-} from 'node:fs/promises';
+import { mkdir, mkdtemp, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -167,10 +162,7 @@ describe('buildRepoIndex', () => {
         path.join(root, 'package.json'),
         '\uFEFF{"name":"fixture","scripts":{"check":"echo ok"}}',
       ),
-      writeFile(
-        path.join(root, 'turbo.json'),
-        '\uFEFF{"tasks":{"build":{}}}',
-      ),
+      writeFile(path.join(root, 'turbo.json'), '\uFEFF{"tasks":{"build":{}}}'),
     ]);
 
     const index = await buildRepoIndex(root);
