@@ -582,6 +582,8 @@ async function runCli(
       {
         cwd,
         encoding: 'utf8',
+        // picocolors enables colors whenever CI is set; keep assertions stable.
+        env: { ...process.env, NO_COLOR: '1' },
         timeout: 10_000,
         maxBuffer: 10 * 1024 * 1024,
       },
