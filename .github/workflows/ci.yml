@@ -70,10 +70,21 @@ jobs:
           pack_path="$pack_dir/amigolint.tgz"
 
           pnpm pack --out "$pack_path"
-          # --force-local: on Windows, Git Bash's tar otherwise reads the
-          # drive letter in an absolute path ("D:\...") as a remote
-          # host:path spec and fails with "Cannot connect to D:".
-          tar --force-local -xzf "$pack_path" -C "$unpack_dir"
+          # On Windows, $RUNNER_TEMP is a native path ("D:\a\_temp\...");
+          # Git Bash's tar misreads the drive letter as a remote host:path
+          # spec ("Cannot connect to D:"). --force-local isn't the fix
+          # either: BSD tar (macOS) doesn't have that flag, and Windows'
+          # bundled tar still mishandled it. Convert to an unambiguous
+          # POSIX-style path with cygpath (present in Git Bash) instead;
+          # elsewhere cygpath doesn't exist, so the paths are used as-is.
+          if command -v cygpath >/dev/null 2>&1; then
+            tar_pack_path="$(cygpath -u "$pack_path")"
+            tar_unpack_dir="$(cygpath -u "$unpack_dir")"
+          else
+            tar_pack_path="$pack_path"
+            tar_unpack_dir="$unpack_dir"
+          fi
+          tar -xzf "$tar_pack_path" -C "$tar_unpack_dir"
 
           packed_bytes="$(wc -c < "$pack_path" | tr -d '[:space:]')"
           unpacked_bytes="$(node --input-type=module - "$unpack_dir/package" <<'NODE'
