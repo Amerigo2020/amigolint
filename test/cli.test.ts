@@ -73,6 +73,9 @@ beforeAll(async () => {
     env: { ...process.env, NO_COLOR: '1' },
     maxBuffer: 10 * 1024 * 1024,
     timeout: 60_000,
+    // pnpm.cmd is a Windows batch shim; execFile needs a shell to run it,
+    // otherwise Node rejects the spawn with EINVAL before it starts.
+    shell: process.platform === 'win32',
   });
 
   fixtureRoot = await mkdtemp(path.join(tmpdir(), 'amigolint-cli-'));
