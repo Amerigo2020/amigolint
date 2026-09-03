@@ -41,7 +41,10 @@ beforeAll(async () => {
       });
       return;
     }
-    setTimeout(() => finish(204), 20);
+    // Respond immediately: a delay here raced the 75ms test timeout under
+    // CI load, sporadically making "ok" replies look like timeouts too.
+    // /slow deliberately never responds, so it alone should time out.
+    finish(204);
   });
   await new Promise<void>((resolve, reject) => {
     server.once('error', reject);
@@ -131,7 +134,7 @@ describe('AL006 dead-link', () => {
       doc,
       allDocs: [doc],
       repo,
-      options: { checkUrls: true, timeoutMs: 75 },
+      options: { checkUrls: true, timeoutMs: 200 },
     });
 
     expect(findings.map(({ severity }) => severity)).toEqual([

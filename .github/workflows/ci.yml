@@ -70,7 +70,10 @@ jobs:
           pack_path="$pack_dir/amigolint.tgz"
 
           pnpm pack --out "$pack_path"
-          tar -xzf "$pack_path" -C "$unpack_dir"
+          # --force-local: on Windows, Git Bash's tar otherwise reads the
+          # drive letter in an absolute path ("D:\...") as a remote
+          # host:path spec and fails with "Cannot connect to D:".
+          tar --force-local -xzf "$pack_path" -C "$unpack_dir"
 
           packed_bytes="$(wc -c < "$pack_path" | tr -d '[:space:]')"
           unpacked_bytes="$(node --input-type=module - "$unpack_dir/package" <<'NODE'
